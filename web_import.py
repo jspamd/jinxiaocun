@@ -320,18 +320,22 @@ def upload_file():
             background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
             color: #fff;
             border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
+            padding: 12px 24px; /* 增加内边距 */
+            border-radius: 8px; /* 圆角 */
             cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 16px; /* 增加字体大小 */
+            font-weight: bold; /* 加粗字体 */
             margin: 0 10px;
             text-decoration: none;
             display: inline-block;
-            transition: background 0.2s;
+            transition: background 0.3s, transform 0.3s; /* 增加过渡效果 */
         }
         .nav-btn:hover {
             background: linear-gradient(90deg, #218838 0%, #1ea085 100%);
+            transform: scale(1.05); /* 鼠标悬停时放大 */
+        }
+        .nav-btn:active {
+            transform: scale(0.95); /* 点击时缩小 */
         }
         .container .msg, .container .error {
             text-align: center;
@@ -477,10 +481,8 @@ def query_data():
         }
         .controls {
             display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
             align-items: center;
-            flex-wrap: wrap;
+            gap: 20px; /* 控制间距 */
         }
         .table-selector {
             display: flex;
@@ -613,9 +615,9 @@ def query_data():
             border-color: #4f8cff;
         }
         .stats {
-            margin-bottom: 20px;
-            color: #666;
-            font-size: 14px;
+            margin-left: 20px; /* 控制与下拉框的间距 */
+            color: #666; /* 文字颜色 */
+            font-size: 14px; /* 字体大小 */
         }
         .sort-indicator {
             margin-left: 5px;
@@ -678,9 +680,15 @@ def query_data():
     <div class="header">
         <h1>{{ table_display_name }} - 数据查询</h1>
         <div class="nav-buttons">
-            <button class="nav-btn" onclick="batchDelete()">批量删除</button>
-            <button class="nav-btn" onclick="exportExcel()">导出 Excel</button>
-            <a href="/" class="nav-btn">返回上传</a>
+            <button class="nav-btn" onclick="batchDelete()">
+                <i class="fas fa-trash"></i> 批量删除
+            </button>
+            <button class="nav-btn" onclick="exportExcel()">
+                <i class="fas fa-file-excel"></i> 导出 Excel
+            </button>
+            <a href="/" class="nav-btn">
+                <i class="fas fa-arrow-left"></i> 返回上传
+            </a>
         </div>
     </div>
     
@@ -723,18 +731,16 @@ def query_data():
                     </div>
                     <button class="search-btn" onclick="searchData()">搜索</button>
                 </div>
-                <div class="controls">
+                <div class="controls" style="display: flex; align-items: center; gap: 20px;">
                     <label for="perPageSelect">每页显示行数：</label>
                     <select id="perPageSelect" onchange="changePerPage()">
-                        <option value="100">100</option>
                         <option value="500" selected>500</option>
                         <option value="1000">1000</option>
                     </select>
+                    <div class="stats">
+                        共 {{ result.total_records }} 条记录
+                    </div>
                 </div>
-            </div>
-            
-            <div class="stats">
-                共 {{ result.total_records }} 条记录，当前第 {{ result.current_page }}/{{ result.total_pages }} 页
             </div>
             
             <div class="pagination" style="justify-content:center;">
@@ -782,8 +788,8 @@ def query_data():
                                     <td {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col" title="{{ row[column.Field] }}"{% endif %}>{{ row[column.Field] or '' }}</td>
                                 {% endfor %}
                                 <td>
-                                    <button onclick="openEditDialog({{ loop.index0 }})">编辑</button>
-                                    <button onclick="deleteRow({{ loop.index0 }})">删除</button>
+                                    <button class="button" style="background: linear-gradient(90deg, #4f8cff 20%, #6ed0ff 50%); color: #fff; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 14px; " onclick="openEditDialog({{ loop.index0 }})">编辑</button>
+                                    <button class="button" style="background: linear-gradient(90deg, #4f8cff 20%, #6ed0ff 50%); color: #fff; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 14px; " onclick= "deleteRow({{ loop.index0 }})">删除</button>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -1008,7 +1014,8 @@ function changePage(page) {
     const fields = getSelectedFields();
     const sortFields = getSelectedSortFields();
     const sortOrders = getSelectedSortOrders();
-    let url = `/query?table=${table}&page=${page}`;
+    const perPage = document.getElementById('perPageSelect').value; // 获取每页显示的条数
+    let url = `/query?table=${table}&page=${page}&per_page=${perPage}`; // 将 per_page 加入 URL
     if (fields) url += `&fields=${encodeURIComponent(fields)}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
     if (sortFields) url += `&sort_field=${encodeURIComponent(sortFields)}`;
@@ -1570,18 +1577,22 @@ UPLOAD_TEMPLATE = r'''
             background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
             color: #fff;
             border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
+            padding: 12px 24px; /* 增加内边距 */
+            border-radius: 8px; /* 圆角 */
             cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 16px; /* 增加字体大小 */
+            font-weight: bold; /* 加粗字体 */
             margin: 0 10px;
             text-decoration: none;
             display: inline-block;
-            transition: background 0.2s;
+            transition: background 0.3s, transform 0.3s; /* 增加过渡效果 */
         }
         .nav-btn:hover {
             background: linear-gradient(90deg, #218838 0%, #1ea085 100%);
+            transform: scale(1.05); /* 鼠标悬停时放大 */
+        }
+        .nav-btn:active {
+            transform: scale(0.95); /* 点击时缩小 */
         }
         .container .msg, .container .error {
             text-align: center;
@@ -1697,10 +1708,8 @@ QUERY_TEMPLATE = r'''
         }
         .controls {
             display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
             align-items: center;
-            flex-wrap: wrap;
+            gap: 20px; /* 控制间距 */
         }
         .table-selector {
             display: flex;
@@ -1833,9 +1842,9 @@ QUERY_TEMPLATE = r'''
             border-color: #4f8cff;
         }
         .stats {
-            margin-bottom: 20px;
-            color: #666;
-            font-size: 14px;
+            margin-left: 20px; /* 控制与下拉框的间距 */
+            color: #666; /* 文字颜色 */
+            font-size: 14px; /* 字体大小 */
         }
         .sort-indicator {
             margin-left: 5px;
@@ -1898,9 +1907,15 @@ QUERY_TEMPLATE = r'''
     <div class="header">
         <h1>{{ table_display_name }} - 数据查询</h1>
         <div class="nav-buttons">
-            <button class="nav-btn" onclick="batchDelete()">批量删除</button>
-            <button class="nav-btn" onclick="exportExcel()">导出 Excel</button>
-            <a href="/" class="nav-btn">返回上传</a>
+            <button class="nav-btn" onclick="batchDelete()">
+                <i class="fas fa-trash"></i> 批量删除
+            </button>
+            <button class="nav-btn" onclick="exportExcel()">
+                <i class="fas fa-file-excel"></i> 导出 Excel
+            </button>
+            <a href="/" class="nav-btn">
+                <i class="fas fa-arrow-left"></i> 返回上传
+            </a>
         </div>
     </div>
     
@@ -1943,19 +1958,16 @@ QUERY_TEMPLATE = r'''
                     </div>
                     <button class="search-btn" onclick="searchData()">搜索</button>
                 </div>
-                <div class="controls">
+                <div class="controls" style="display: flex; align-items: center; gap: 20px;">
                     <label for="perPageSelect">每页显示行数：</label>
                     <select id="perPageSelect" onchange="changePerPage()">
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50" selected>50</option>
-                        <option value="100">100</option>
+                        <option value="500" selected>500</option>
+                        <option value="1000">1000</option>
                     </select>
+                    <div class="stats">
+                        共 {{ result.total_records }} 条记录
+                    </div>
                 </div>
-            </div>
-            
-            <div class="stats">
-                共 {{ result.total_records }} 条记录，当前第 {{ result.current_page }}/{{ result.total_pages }} 页
             </div>
             
             <div class="pagination" style="justify-content:center;">
@@ -2003,8 +2015,8 @@ QUERY_TEMPLATE = r'''
                                     <td {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col" title="{{ row[column.Field] }}"{% endif %}>{{ row[column.Field] or '' }}</td>
                                 {% endfor %}
                                 <td>
-                                    <button onclick="openEditDialog({{ loop.index0 }})">编辑</button>
-                                    <button onclick="deleteRow({{ loop.index0 }})">删除</button>
+                                    <button class="button" style="background: linear-gradient(90deg, #4f8cff 0%, #6ed0ff 100%); color: #fff; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 14px; font-weight: bold;" onclick="openEditDialog({{ loop.index0 }})">编辑</button>
+                                    <button class="button" onclick="deleteRow({{ loop.index0 }})">删除</button>
                                 </td>
                             </tr>
                         {% endfor %}
@@ -2229,7 +2241,8 @@ function changePage(page) {
     const fields = getSelectedFields();
     const sortFields = getSelectedSortFields();
     const sortOrders = getSelectedSortOrders();
-    let url = `/query?table=${table}&page=${page}`;
+    const perPage = document.getElementById('perPageSelect').value; // 获取每页显示的条数
+    let url = `/query?table=${table}&page=${page}&per_page=${perPage}`; // 将 per_page 加入 URL
     if (fields) url += `&fields=${encodeURIComponent(fields)}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
     if (sortFields) url += `&sort_field=${encodeURIComponent(sortFields)}`;
