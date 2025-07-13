@@ -394,7 +394,7 @@ def query_data():
     """查询数据页面"""
     table_name = request.args.get('table', 'customer_redemption_details')
     page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 50))
+    per_page = int(request.args.get('per_page', 50))  # 默认每页50条
     sort_field = request.args.get('sort_field')
     sort_order = request.args.get('sort_order', 'ASC')
     search_term = request.args.get('search', '')
@@ -722,6 +722,14 @@ def query_data():
                         <span id="clearSearchBtn" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;color:#bbb;">×</span>
                     </div>
                     <button class="search-btn" onclick="searchData()">搜索</button>
+                </div>
+                <div class="controls">
+                    <label for="perPageSelect">每页显示行数：</label>
+                    <select id="perPageSelect" onchange="changePerPage()">
+                        <option value="100">100</option>
+                        <option value="500" selected>500</option>
+                        <option value="1000">1000</option>
+                    </select>
                 </div>
             </div>
             
@@ -1227,6 +1235,21 @@ function exportExcel() {
         alert('导出失败：' + error.message);
     });
 }
+
+function changePerPage() {
+    const perPage = document.getElementById('perPageSelect').value;
+    const table = document.getElementById('tableSelect').value;
+    const searchTerm = document.getElementById('searchInput').value.trim();
+    const fields = getSelectedFields();
+    const sortFields = getSelectedSortFields();
+    const sortOrders = getSelectedSortOrders();
+    let url = `/query?table=${table}&per_page=${perPage}`;
+    if (fields) url += `&fields=${encodeURIComponent(fields)}`;
+    if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
+    if (sortFields) url += `&sort_field=${encodeURIComponent(sortFields)}`;
+    if (sortOrders) url += `&sort_order=${encodeURIComponent(sortOrders)}`;
+    window.location.href = url;
+}
 </script>
 </body>
 </html>
@@ -1352,8 +1375,16 @@ def export_excel():
     try:
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
+        
+        # 查询时排除 id 和当前日期字段
         cursor.execute(f"SELECT * FROM `{table_name}` WHERE id IN ({','.join(['%s'] * len(ids))})", ids)
         data = cursor.fetchall()
+        
+        # 排除不需要的字段
+        for row in data:
+            row.pop('id', None)  # 去掉 id 字段
+            row.pop('当前日期', None)  # 去掉当前日期字段（请根据实际字段名替换）
+
         cursor.close()
         conn.close()
 
@@ -1877,6 +1908,15 @@ QUERY_TEMPLATE = r'''
                     </div>
                     <button class="search-btn" onclick="searchData()">搜索</button>
                 </div>
+                <div class="controls">
+                    <label for="perPageSelect">每页显示行数：</label>
+                    <select id="perPageSelect" onchange="changePerPage()">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50" selected>50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
             </div>
             
             <div class="stats">
@@ -2380,6 +2420,21 @@ function exportExcel() {
     .catch(error => {
         alert('导出失败：' + error.message);
     });
+}
+
+function changePerPage() {
+    const perPage = document.getElementById('perPageSelect').value;
+    const table = document.getElementById('tableSelect').value;
+    const searchTerm = document.getElementById('searchInput').value.trim();
+    const fields = getSelectedFields();
+    const sortFields = getSelectedSortFields();
+    const sortOrders = getSelectedSortOrders();
+    let url = `/query?table=${table}&per_page=${perPage}`;
+    if (fields) url += `&fields=${encodeURIComponent(fields)}`;
+    if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
+    if (sortFields) url += `&sort_field=${encodeURIComponent(sortFields)}`;
+    if (sortOrders) url += `&sort_order=${encodeURIComponent(sortOrders)}`;
+    window.location.href = url;
 }
 </script>
 </body>
