@@ -394,7 +394,7 @@ def query_data():
     """查询数据页面"""
     table_name = request.args.get('table', 'customer_redemption_details')
     page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 50))  # 默认每页50条
+    per_page = int(request.args.get('per_page', 50))
     sort_field = request.args.get('sort_field')
     sort_order = request.args.get('sort_order', 'ASC')
     search_term = request.args.get('search', '')
@@ -900,6 +900,16 @@ window.addEventListener('DOMContentLoaded', function() {
 
     // 页面初始时也要同步一次
     updateSortOrdersChoices();
+
+    // 获取 URL 参数
+    const urlParams = new URLSearchParams(window.location.search);
+    const perPage = urlParams.get('per_page');
+
+    // 如果有 per_page 参数，设置下拉框的值
+    if (perPage) {
+        const perPageSelect = document.getElementById('perPageSelect');
+        perPageSelect.value = perPage; // 设置下拉框的值
+    }
 });
 
 function updateSortOrdersChoices() {
@@ -965,7 +975,8 @@ function searchData() {
     const fields = getSelectedFields();
     const sortFields = getSelectedSortFields();
     const sortOrders = getSelectedSortOrders();
-    let url = `/query?table=${table}`;
+    const perPage = document.getElementById('perPageSelect').value; // 获取每页显示的条数
+    let url = `/query?table=${table}&per_page=${perPage}`; // 将 per_page 加入 URL
     if (fields) url += `&fields=${encodeURIComponent(fields)}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
     if (sortFields) url += `&sort_field=${encodeURIComponent(sortFields)}`;
@@ -1193,6 +1204,30 @@ document.getElementById('fieldsSelect').addEventListener('focus', function() {
     this.parentNode.querySelector('.choices').click();
 });
 
+function batchDelete() {
+    const selectedRows = Array.from(document.querySelectorAll('.data-table input[type=checkbox]:checked'));
+    if (selectedRows.length === 0) {
+        alert('请至少选择一条记录进行删除。');
+        return;
+    }
+    const ids = selectedRows.map(row => row.dataset.id);
+    const table = tableName; // 替换为实际的表名
+    const pk_name = 'id'; // 替换为实际的主键字段名
+
+    if (confirm('确定要删除选中的记录吗？')) {
+        fetch('/api/batch_delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({table: table, pk_name: pk_name, ids: ids})
+        }).then(response => response.json()).then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('删除失败：' + res.msg);
+            }
+        });
+    }
+}
 
 function toggleSelectAll(selectAllCheckbox) {
     const checkboxes = document.querySelectorAll('.data-table input[type=checkbox]');
@@ -2086,6 +2121,16 @@ window.addEventListener('DOMContentLoaded', function() {
 
     // 页面初始时也要同步一次
     updateSortOrdersChoices();
+
+    // 获取 URL 参数
+    const urlParams = new URLSearchParams(window.location.search);
+    const perPage = urlParams.get('per_page');
+
+    // 如果有 per_page 参数，设置下拉框的值
+    if (perPage) {
+        const perPageSelect = document.getElementById('perPageSelect');
+        perPageSelect.value = perPage; // 设置下拉框的值
+    }
 });
 
 function updateSortOrdersChoices() {
@@ -2151,7 +2196,8 @@ function searchData() {
     const fields = getSelectedFields();
     const sortFields = getSelectedSortFields();
     const sortOrders = getSelectedSortOrders();
-    let url = `/query?table=${table}`;
+    const perPage = document.getElementById('perPageSelect').value; // 获取每页显示的条数
+    let url = `/query?table=${table}&per_page=${perPage}`; // 将 per_page 加入 URL
     if (fields) url += `&fields=${encodeURIComponent(fields)}`;
     if (searchTerm) url += `&search=${encodeURIComponent(searchTerm)}`;
     if (sortFields) url += `&sort_field=${encodeURIComponent(sortFields)}`;
@@ -2379,6 +2425,30 @@ document.getElementById('fieldsSelect').addEventListener('focus', function() {
     this.parentNode.querySelector('.choices').click();
 });
 
+function batchDelete() {
+    const selectedRows = Array.from(document.querySelectorAll('.data-table input[type=checkbox]:checked'));
+    if (selectedRows.length === 0) {
+        alert('请至少选择一条记录进行删除。');
+        return;
+    }
+    const ids = selectedRows.map(row => row.dataset.id);
+    const table = tableName; // 替换为实际的表名
+    const pk_name = 'id'; // 替换为实际的主键字段名
+
+    if (confirm('确定要删除选中的记录吗？')) {
+        fetch('/api/batch_delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({table: table, pk_name: pk_name, ids: ids})
+        }).then(response => response.json()).then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('删除失败：' + res.msg);
+            }
+        });
+    }
+}
 
 function toggleSelectAll(selectAllCheckbox) {
     const checkboxes = document.querySelectorAll('.data-table input[type=checkbox]');
