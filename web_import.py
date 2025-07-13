@@ -677,6 +677,7 @@ def query_data():
     <div class="header">
         <h1>{{ table_display_name }} - 数据查询</h1>
         <div class="nav-buttons">
+            <button class="nav-btn" onclick="batchDelete()">批量删除</button>
             <a href="/" class="nav-btn">返回上传</a>
         </div>
     </div>
@@ -747,6 +748,7 @@ def query_data():
                     {% set show_columns = result.columns|rejectattr('Field', 'equalto', 'id')|list %}
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
                             <th style="width:60px;">序号</th>
                             {% for column in show_columns %}
                                 <th onclick="sortTable('{{ column.Field }}')" {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col"{% endif %}>
@@ -764,6 +766,7 @@ def query_data():
                     <tbody>
                         {% for row in result.data %}
                             <tr>
+                                <td><input type="checkbox" data-id="{{ row.id }}"></td>
                                 <td>{{ (result.current_page-1)*result.per_page + loop.index }}</td>
                                 {% for column in show_columns %}
                                     <td {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col" title="{{ row[column.Field] }}"{% endif %}>{{ row[column.Field] or '' }}</td>
@@ -1179,6 +1182,38 @@ document.getElementById('addForm').onsubmit = function(e) {
 document.getElementById('fieldsSelect').addEventListener('focus', function() {
     this.parentNode.querySelector('.choices').click();
 });
+
+function batchDelete() {
+    const selectedRows = Array.from(document.querySelectorAll('.data-table input[type=checkbox]:checked'));
+    if (selectedRows.length === 0) {
+        alert('请至少选择一条记录进行删除。');
+        return;
+    }
+    const ids = selectedRows.map(row => row.dataset.id);
+    const table = tableName; // 替换为实际的表名
+    const pk_name = 'id'; // 替换为实际的主键字段名
+
+    if (confirm('确定要删除选中的记录吗？')) {
+        fetch('/api/batch_delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({table: table, pk_name: pk_name, ids: ids})
+        }).then(response => response.json()).then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('删除失败：' + res.msg);
+            }
+        });
+    }
+}
+
+function toggleSelectAll(selectAllCheckbox) {
+    const checkboxes = document.querySelectorAll('.data-table input[type=checkbox]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
 </script>
 </body>
 </html>
@@ -1270,6 +1305,24 @@ def api_delete_row():
         cursor = conn.cursor()
         sql = f"DELETE FROM `{table}` WHERE `{pk_name}`=%s"
         cursor.execute(sql, (pk_value,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'msg': str(e)}), 500
+
+@app.route('/api/batch_delete', methods=['POST'])
+def api_batch_delete():
+    table = request.json.get('table')
+    ids = request.json.get('ids')  # list
+    if not table or not ids:
+        return jsonify({'success': False, 'msg': '参数缺失'}), 400
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        sql = f"DELETE FROM `{table}` WHERE `id` IN ({','.join(['%s'] * len(ids))})"
+        cursor.execute(sql, ids)
         conn.commit()
         cursor.close()
         conn.close()
@@ -1741,6 +1794,7 @@ QUERY_TEMPLATE = r'''
     <div class="header">
         <h1>{{ table_display_name }} - 数据查询</h1>
         <div class="nav-buttons">
+            <button class="nav-btn" onclick="batchDelete()">批量删除</button>
             <a href="/" class="nav-btn">返回上传</a>
         </div>
     </div>
@@ -1811,6 +1865,7 @@ QUERY_TEMPLATE = r'''
                     {% set show_columns = result.columns|rejectattr('Field', 'equalto', 'id')|list %}
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
                             <th style="width:60px;">序号</th>
                             {% for column in show_columns %}
                                 <th onclick="sortTable('{{ column.Field }}')" {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col"{% endif %}>
@@ -1828,6 +1883,7 @@ QUERY_TEMPLATE = r'''
                     <tbody>
                         {% for row in result.data %}
                             <tr>
+                                <td><input type="checkbox" data-id="{{ row.id }}"></td>
                                 <td>{{ (result.current_page-1)*result.per_page + loop.index }}</td>
                                 {% for column in show_columns %}
                                     <td {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col" title="{{ row[column.Field] }}"{% endif %}>{{ row[column.Field] or '' }}</td>
@@ -2243,6 +2299,38 @@ document.getElementById('addForm').onsubmit = function(e) {
 document.getElementById('fieldsSelect').addEventListener('focus', function() {
     this.parentNode.querySelector('.choices').click();
 });
+
+function batchDelete() {
+    const selectedRows = Array.from(document.querySelectorAll('.data-table input[type=checkbox]:checked'));
+    if (selectedRows.length === 0) {
+        alert('请至少选择一条记录进行删除。');
+        return;
+    }
+    const ids = selectedRows.map(row => row.dataset.id);
+    const table = tableName; // 替换为实际的表名
+    const pk_name = 'id'; // 替换为实际的主键字段名
+
+    if (confirm('确定要删除选中的记录吗？')) {
+        fetch('/api/batch_delete', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({table: table, pk_name: pk_name, ids: ids})
+        }).then(response => response.json()).then(res => {
+            if (res.success) {
+                location.reload();
+            } else {
+                alert('删除失败：' + res.msg);
+            }
+        });
+    }
+}
+
+function toggleSelectAll(selectAllCheckbox) {
+    const checkboxes = document.querySelectorAll('.data-table input[type=checkbox]');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+}
 </script>
 </body>
 </html>
