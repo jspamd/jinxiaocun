@@ -71,23 +71,136 @@ TEMPLATE = '''
     <meta charset="UTF-8">
     <title>Excel数据导入系统</title>
     <style>
-        body { font-family: "微软雅黑", Arial, sans-serif; background: #f7f7f7; }
-        .container { max-width: 500px; margin: 60px auto; background: #fff; padding: 30px 40px; border-radius: 8px; box-shadow: 0 2px 8px #ccc; }
-        h2 { text-align: center; color: #333; }
-        .msg { margin: 10px 0; color: #007700; }
-        .error { color: #bb2222; }
-        .upload-btn { background: #007bff; color: #fff; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer; font-size: 16px; }
-        .upload-btn:hover { background: #0056b3; }
-        input[type=file] { margin: 20px 0; }
+        body {
+            font-family: "微软雅黑", Arial, sans-serif;
+            background: linear-gradient(135deg, #e0e7ff 0%, #f7f7f7 100%);
+            min-height: 100vh;
+            margin: 0;
+        }
+        .container {
+            max-width: 500px;
+            margin: 60px auto;
+            background: #fff;
+            padding: 30px 40px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(60,60,120,0.15), 0 1.5px 4px #ccc;
+            animation: fadeInCard 1s;
+        }
+        @keyframes fadeInCard {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .logo {
+            display: block;
+            margin: 0 auto 18px auto;
+            width: 80px;
+            height: 80px;
+            object-fit: contain;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(60,60,120,0.10);
+            background: #fff;
+            animation: logoPop 1.2s cubic-bezier(.5,-0.2,.5,1.4);
+        }
+        @keyframes logoPop {
+            0% { opacity: 0; transform: scale(0.5) rotate(-20deg); }
+            60% { opacity: 1; transform: scale(1.1) rotate(8deg); }
+            100% { opacity: 1; transform: scale(1) rotate(0); }
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            letter-spacing: 2px;
+        }
+        .msg {
+            margin: 10px 0;
+            color: #007700;
+        }
+        .error {
+            color: #bb2222;
+        }
+        .upload-btn {
+            background: linear-gradient(90deg, #4f8cff 0%, #6ed0ff 100%);
+            color: #fff;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(79,140,255,0.15);
+            transition: background 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .upload-btn:hover {
+            background: linear-gradient(90deg, #3578e5 0%, #4fd0ff 100%);
+            box-shadow: 0 4px 16px rgba(79,140,255,0.25);
+        }
+        /* 波纹动画 */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+            background-color: rgba(255,255,255,0.5);
+            pointer-events: none;
+        }
+        @keyframes ripple {
+            to {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            margin: 20px 0 30px 0;
+        }
+        .file-input {
+            opacity: 0;
+            width: 100%;
+            height: 48px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            cursor: pointer;
+        }
+        .file-label {
+            display: block;
+            width: 100%;
+            height: 48px;
+            background: #f0f4ff;
+            border: 2px dashed #4f8cff;
+            border-radius: 12px;
+            text-align: center;
+            line-height: 48px;
+            color: #3578e5;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, border 0.2s;
+        }
+        .file-label:hover {
+            background: #e6f0ff;
+            border-color: #3578e5;
+        }
+        input[type=file] {
+            display: none;
+        }
     </style>
 </head>
 <body>
 <div class="container">
+    <img src="/static/monicaLogo.png" alt="Logo" class="logo">
     <h2>Excel数据导入系统</h2>
     <form method="post" enctype="multipart/form-data">
-        <label>请选择要上传的Excel文件（可多选）：</label><br>
-        <input type="file" name="file" multiple required><br>
-        <button class="upload-btn" type="submit">上传并导入</button>
+        <label class="file-label" for="file">请选择要上传的Excel文件（可多选）：</label>
+        <div class="file-input-wrapper">
+            <input class="file-input" id="file" type="file" name="file" multiple required onchange="document.getElementById('file-name').innerText = this.files.length ? Array.from(this.files).map(f=>f.name).join(', ') : '未选择文件'">
+            <span id="file-name" style="display:block;margin-top:8px;color:#888;font-size:14px;">未选择文件</span>
+        </div>
+        <button class="upload-btn" type="submit" id="uploadBtn">上传并导入</button>
     </form>
     {% if result_msgs %}
         <div style="margin-top:20px;">
@@ -104,6 +217,19 @@ TEMPLATE = '''
         4. 仅支持xls/xlsx格式。<br>
     </div>
 </div>
+<script>
+// 上传按钮波纹动画
+const btn = document.getElementById('uploadBtn');
+btn.addEventListener('click', function(e) {
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.left = (e.offsetX - 25) + 'px';
+    ripple.style.top = (e.offsetY - 25) + 'px';
+    ripple.style.width = ripple.style.height = '50px';
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+});
+</script>
 </body>
 </html>
 '''
