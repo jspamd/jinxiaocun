@@ -92,3 +92,50 @@ python import_data.py
 ## 联系信息
 
 如有问题，请联系开发团队。 
+
+
+## 怎么打包：
+
+方案一：打包为可执行文件（推荐，适合Windows用户）
+1. **使用 PyInstaller 打包**
+   这样用户无需安装Python环境，直接双击运行。
+步骤：
+1.**安装 PyInstaller**
+  -  pip install pyinstaller
+2.**在项目目录下执行打包命令**
+ -   pyinstaller -F -w web_import.py
+ -   -F 生成单一可执行文件
+ -   -w 不弹出命令行窗口（如需调试可去掉）
+
+3.**打包后目录说明**
+- dist/web_import.exe 就是可分发的主程序
+- 需要把 static 文件夹、uploads 文件夹、Excel模板等一并打包给对方
+
+4.注意事项
+- 数据库配置（如 database_config.py）要一并提供，并指导用户填写自己的MySQL信息
+- 依赖的DLL、图片、静态文件等都要放在同级目录或子目录
+
+
+# Excel数据导入系统 使用说明
+
+## 1. 环境要求
+- Windows 10/11
+- 已安装MySQL数据库
+- （如未打包为exe）需安装Python 3.8+
+
+## 2. 安装步骤
+1. 解压本压缩包
+2. （如未打包为exe）双击 install.bat 安装依赖
+3. 配置 database_config.py，填写你的MySQL信息
+
+## 3. 启动方法
+- 双击 web_import.exe
+- 或命令行输入 python web_import.py
+
+## 4. 使用方法
+- 浏览器访问 http://localhost:5000
+- 上传Excel文件，自动导入数据库
+
+## 5. 常见问题
+- 端口被占用：请关闭其他占用5000端口的程序
+- 数据库连接失败：请检查MySQL配置

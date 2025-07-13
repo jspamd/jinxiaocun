@@ -1,7 +1,17 @@
 import os
+import sys
 from flask import Flask, request, render_template_string, jsonify
 from werkzeug.utils import secure_filename
 from debug_import import import_excel_data, create_connection
+
+def resource_path(relative_path):
+    """获取资源的绝对路径，兼容开发环境和打包后的环境"""
+    try:
+        # PyInstaller创建临时文件夹，将路径存储在_MEIPASS中
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'xls', 'xlsx'}
@@ -14,7 +24,7 @@ FILENAME_TABLE_MAP = {
     '输出结果': 'output_results',
 }
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=resource_path('static'))
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32MB
 
@@ -73,7 +83,10 @@ TEMPLATE = '''
     <style>
         body {
             font-family: "微软雅黑", Arial, sans-serif;
-            background: linear-gradient(135deg, #e0e7ff 0%, #f7f7f7 100%);
+            background: 
+                linear-gradient(135deg, rgba(224,231,255,0.7) 0%, rgba(247,247,247,0.8) 100%),
+                url('/static/finance_bg.jpg') no-repeat center center fixed;
+            background-size: cover;
             min-height: 100vh;
             margin: 0;
         }

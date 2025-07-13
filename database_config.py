@@ -59,4 +59,7 @@ def test_connection():
         return False
 
 if __name__ == "__main__":
+    import sys
+    sys.stdout = open('runlog.txt', 'w', encoding='utf-8')
+    sys.stderr = sys.stdout
     test_connection() 
