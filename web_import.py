@@ -1,10 +1,11 @@
 import os
 import sys
-from flask import Flask, request, render_template_string, jsonify
+from flask import Flask, request, render_template_string, jsonify, send_file
 from werkzeug.utils import secure_filename
 from debug_import import import_excel_data, create_connection
 import mysql.connector
 from mysql.connector import Error
+import pandas as pd
 
 def resource_path(relative_path):
     """获取资源的绝对路径，兼容开发环境和打包后的环境"""
@@ -678,6 +679,7 @@ def query_data():
         <h1>{{ table_display_name }} - 数据查询</h1>
         <div class="nav-buttons">
             <button class="nav-btn" onclick="batchDelete()">批量删除</button>
+            <button class="nav-btn" onclick="exportExcel()">导出 Excel</button>
             <a href="/" class="nav-btn">返回上传</a>
         </div>
     </div>
@@ -1183,35 +1185,46 @@ document.getElementById('fieldsSelect').addEventListener('focus', function() {
     this.parentNode.querySelector('.choices').click();
 });
 
-function batchDelete() {
-    const selectedRows = Array.from(document.querySelectorAll('.data-table input[type=checkbox]:checked'));
-    if (selectedRows.length === 0) {
-        alert('请至少选择一条记录进行删除。');
-        return;
-    }
-    const ids = selectedRows.map(row => row.dataset.id);
-    const table = tableName; // 替换为实际的表名
-    const pk_name = 'id'; // 替换为实际的主键字段名
-
-    if (confirm('确定要删除选中的记录吗？')) {
-        fetch('/api/batch_delete', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({table: table, pk_name: pk_name, ids: ids})
-        }).then(response => response.json()).then(res => {
-            if (res.success) {
-                location.reload();
-            } else {
-                alert('删除失败：' + res.msg);
-            }
-        });
-    }
-}
 
 function toggleSelectAll(selectAllCheckbox) {
     const checkboxes = document.querySelectorAll('.data-table input[type=checkbox]');
     checkboxes.forEach(checkbox => {
         checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
+function exportExcel() {
+    const table = tableName; // 替换为实际的表名
+    const selectedRows = Array.from(document.querySelectorAll('.data-table input[type=checkbox]:checked'));
+    if (selectedRows.length === 0) {
+        alert('请至少选择一条记录进行导出。');
+        return;
+    }
+    const ids = selectedRows.map(row => row.dataset.id);
+    
+    fetch('/api/export_excel', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({table: table, ids: ids})
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob(); // 获取文件 Blob
+        } else {
+            return response.json().then(res => { throw new Error(res.msg); });
+        }
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${table}.xlsx`; // 设置下载文件名
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    })
+    .catch(error => {
+        alert('导出失败：' + error.message);
     });
 }
 </script>
@@ -1327,6 +1340,31 @@ def api_batch_delete():
         cursor.close()
         conn.close()
         return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'msg': str(e)}), 500
+
+@app.route('/api/export_excel', methods=['POST'])
+def export_excel():
+    table_name = request.json.get('table') 
+    ids = request.json.get('ids')  # list
+    if not table_name or not ids:
+        return jsonify({'success': False, 'msg': '参数缺失'}), 400
+    try:
+        conn = create_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(f"SELECT * FROM `{table_name}` WHERE id IN ({','.join(['%s'] * len(ids))})", ids)
+        data = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+        # 创建 Excel 文件
+        import pandas as pd
+        df = pd.DataFrame(data)
+        output = f"{table_name}.xlsx"
+        df.to_excel(output, index=False)
+
+        # 发送文件到浏览器
+        return send_file(output, as_attachment=True)
     except Exception as e:
         return jsonify({'success': False, 'msg': str(e)}), 500
 
@@ -1795,6 +1833,7 @@ QUERY_TEMPLATE = r'''
         <h1>{{ table_display_name }} - 数据查询</h1>
         <div class="nav-buttons">
             <button class="nav-btn" onclick="batchDelete()">批量删除</button>
+            <button class="nav-btn" onclick="exportExcel()">导出 Excel</button>
             <a href="/" class="nav-btn">返回上传</a>
         </div>
     </div>
@@ -2300,35 +2339,46 @@ document.getElementById('fieldsSelect').addEventListener('focus', function() {
     this.parentNode.querySelector('.choices').click();
 });
 
-function batchDelete() {
-    const selectedRows = Array.from(document.querySelectorAll('.data-table input[type=checkbox]:checked'));
-    if (selectedRows.length === 0) {
-        alert('请至少选择一条记录进行删除。');
-        return;
-    }
-    const ids = selectedRows.map(row => row.dataset.id);
-    const table = tableName; // 替换为实际的表名
-    const pk_name = 'id'; // 替换为实际的主键字段名
-
-    if (confirm('确定要删除选中的记录吗？')) {
-        fetch('/api/batch_delete', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({table: table, pk_name: pk_name, ids: ids})
-        }).then(response => response.json()).then(res => {
-            if (res.success) {
-                location.reload();
-            } else {
-                alert('删除失败：' + res.msg);
-            }
-        });
-    }
-}
 
 function toggleSelectAll(selectAllCheckbox) {
     const checkboxes = document.querySelectorAll('.data-table input[type=checkbox]');
     checkboxes.forEach(checkbox => {
         checkbox.checked = selectAllCheckbox.checked;
+    });
+}
+
+function exportExcel() {
+    const table = tableName; // 替换为实际的表名
+    const selectedRows = Array.from(document.querySelectorAll('.data-table input[type=checkbox]:checked'));
+    if (selectedRows.length === 0) {
+        alert('请至少选择一条记录进行导出。');
+        return;
+    }
+    const ids = selectedRows.map(row => row.dataset.id);
+    
+    fetch('/api/export_excel', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({table: table, ids: ids})
+    })
+    .then(response => {
+        if (response.ok) {
+            return response.blob(); // 获取文件 Blob
+        } else {
+            return response.json().then(res => { throw new Error(res.msg); });
+        }
+    })
+    .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${table}.xlsx`; // 设置下载文件名
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    })
+    .catch(error => {
+        alert('导出失败：' + error.message);
     });
 }
 </script>
