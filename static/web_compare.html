@@ -152,7 +152,7 @@
                 </div>
                 <div class="text-center">
                     <button id="connectDbBtn" type="button" class="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200">
-                        连接数据库 (模拟)
+                        连接数据库
                     </button>
                 </div>
             </div>
@@ -166,7 +166,8 @@
                             <option value="">请先连接数据库...</option>
                         </select>
                     </div>
-                    <textarea id="tableAInput" rows="8" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm mb-4" placeholder="数据将从所选表格加载..." readonly></textarea>
+                    <!-- 移除左表数据textarea -->
+                    <!--<textarea id="tableAInput" rows="8" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm mb-4" placeholder="数据将从所选表格加载..." readonly></textarea>-->
 
                     <h3 class="text-md font-medium text-gray-700 mb-2">左表可用字段:</h3>
                     <div id="availableFieldsA" class="field-list-container flex flex-wrap gap-2 mb-4">
@@ -189,7 +190,8 @@
                             <option value="">请先连接数据库...</option>
                         </select>
                     </div>
-                    <textarea id="tableBInput" rows="8" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm mb-4" placeholder="数据将从所选表格加载..." readonly></textarea>
+                    <!-- 移除右表数据textarea -->
+                    <!--<textarea id="tableBInput" rows="8" class="w-full p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm mb-4" placeholder="数据将从所选表格加载..." readonly></textarea>-->
 
                     <h3 class="text-md font-medium text-gray-700 mb-2">右表可用字段:</h3>
                     <div id="availableFieldsB" class="field-list-container flex flex-wrap gap-2 mb-4">
@@ -265,6 +267,12 @@
         // ========== 新增：全局数据库配置缓存 ==========
         let currentDbConfig = null;
 
+        // ========== 比对结果分页相关 ==========
+        let comparePage = 1;
+        let comparePerPage = 500;
+        let compareTotalPages = 1;
+        let compareRowsCache = [];
+
         // ========== 替换为真实后端API ===========
         async function fetchDatabaseTables(dbConfig) {
             const response = await fetch('/api/get_tables', {
@@ -314,23 +322,22 @@
             return { headers, data };
         }
 
-        // 左右表预览只显示前5条数据
-        function renderTable(data, element) {
-            if (!data || data.length === 0) {
+        // 左右表预览显示数据，只显示已选关联字段，前5条
+        function renderTablePreview(data, element, selectedFields) {
+            if (!data || data.length === 0 || !selectedFields || selectedFields.length === 0) {
                 element.innerHTML = '<p class="text-gray-500 text-center py-2">无数据可预览。</p>';
                 return;
             }
-            const headers = Object.keys(data[0]);
             let tableHtml = '<table class="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">';
             tableHtml += '<thead><tr class="bg-header">';
-            headers.forEach(header => {
+            selectedFields.forEach(header => {
                 tableHtml += `<th class="py-2 px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">${header}</th>`;
             });
             tableHtml += '</tr></thead>';
             tableHtml += '<tbody>';
-            data.slice(0, 5).forEach(row => { // 只显示前5条
+            data.slice(0, 5).forEach(row => {
                 tableHtml += '<tr class="hover:bg-gray-50">';
-                headers.forEach(header => {
+                selectedFields.forEach(header => {
                     tableHtml += `<td class="py-2 px-4 border-b border-gray-200">${row[header] || ''}</td>`;
                 });
                 tableHtml += '</tr>';
@@ -338,198 +345,7 @@
             tableHtml += '</tbody></table>';
             element.innerHTML = tableHtml;
         }
-
-        // 比对结果分页展示
-        let comparePage = 1;
-        let comparePerPage = 500;
-        let compareResultsCache = [];
-        function renderCompareTable(data, element) {
-            compareResultsCache = data;
-            const total = data.length;
-            const totalPages = Math.max(1, Math.ceil(total / comparePerPage));
-            comparePage = Math.max(1, Math.min(comparePage, totalPages));
-            const startIdx = (comparePage - 1) * comparePerPage;
-            const endIdx = Math.min(startIdx + comparePerPage, total);
-            if (!data || data.length === 0) {
-                element.innerHTML = '<p class="text-gray-500 text-center py-2">无数据可预览。</p>';
-                return;
-            }
-            const headers = Object.keys(data[0]);
-            let tableHtml = '<div class="flex items-center gap-4 mb-2">';
-            tableHtml += `<span>共 ${total} 条</span>`;
-            tableHtml += `<span>每页 <select id='comparePerPageSelect' style='border:1px solid #ccc;border-radius:4px;padding:2px 8px;'>`;
-            tableHtml += `<option value='500'${comparePerPage==500?' selected':''}>500</option>`;
-            tableHtml += `<option value='1000'${comparePerPage==1000?' selected':''}>1000</option>`;
-            tableHtml += `</select></span>`;
-            tableHtml += `<span>第 ${comparePage} / ${totalPages} 页</span>`;
-            tableHtml += `<button id='comparePrevBtn' ${comparePage==1?'disabled':''} style='padding:2px 8px;border:1px solid #ccc;border-radius:4px;'>上一页</button>`;
-            tableHtml += `<button id='compareNextBtn' ${comparePage==totalPages?'disabled':''} style='padding:2px 8px;border:1px solid #ccc;border-radius:4px;'>下一页</button>`;
-            tableHtml += '</div>';
-            tableHtml += '<table class="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">';
-            tableHtml += '<thead><tr class="bg-header">';
-            headers.forEach(header => {
-                tableHtml += `<th class="py-2 px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">${header}</th>`;
-            });
-            tableHtml += '</tr></thead>';
-            tableHtml += '<tbody>';
-            data.slice(startIdx, endIdx).forEach(row => {
-                tableHtml += '<tr class="hover:bg-gray-50">';
-                headers.forEach(header => {
-                    tableHtml += `<td class="py-2 px-4 border-b border-gray-200">${row[header] || ''}</td>`;
-                });
-                tableHtml += '</tr>';
-            });
-            tableHtml += '</tbody></table>';
-            element.innerHTML = tableHtml;
-            // 事件
-            document.getElementById('comparePrevBtn').onclick = function(){ if(comparePage>1){comparePage--; renderCompareTable(compareResultsCache, element);} };
-            document.getElementById('compareNextBtn').onclick = function(){ if(comparePage<totalPages){comparePage++; renderCompareTable(compareResultsCache, element);} };
-            document.getElementById('comparePerPageSelect').onchange = function(){ comparePerPage=parseInt(this.value); comparePage=1; renderCompareTable(compareResultsCache, element); };
-        }
-
-        // Create draggable field element
-        function createDraggableField(fieldName) {
-            const fieldDiv = document.createElement('div');
-            fieldDiv.className = 'field-item';
-            fieldDiv.setAttribute('draggable', 'true');
-            fieldDiv.dataset.field = fieldName;
-            fieldDiv.textContent = fieldName;
-
-            fieldDiv.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', fieldName);
-                e.dataTransfer.effectAllowed = 'move';
-                fieldDiv.classList.add('dragging');
-            });
-            fieldDiv.addEventListener('dragend', (e) => {
-                fieldDiv.classList.remove('dragging');
-            });
-            return fieldDiv;
-        }
-
-        // Create selected field element (with remove button)
-        function createSelectedField(fieldName, type) {
-            const fieldDiv = document.createElement('div');
-            fieldDiv.className = 'field-item bg-blue-200 border-blue-500';
-            fieldDiv.dataset.field = fieldName;
-            fieldDiv.textContent = fieldName;
-            fieldDiv.setAttribute('draggable', 'true'); // 关键：确保可拖动
-            const removeBtn = document.createElement('span');
-            removeBtn.className = 'remove-btn';
-            removeBtn.textContent = 'x';
-            removeBtn.title = '点击移除';
-            removeBtn.addEventListener('click', () => removeSelectedField(fieldName, type));
-            fieldDiv.appendChild(removeBtn);
-            return fieldDiv;
-        }
-
-        // Populate available fields area
-        function populateAvailableFields(headers, type) {
-            const container = type === 'A' ? document.getElementById('availableFieldsA') : document.getElementById('availableFieldsB');
-            if (!container) {
-                console.error(`Container for available fields (${type}) not found!`);
-                return;
-            }
-            container.innerHTML = '';
-            const currentKeys = type === 'A' ? currentKeyAFields : currentKeyBFields;
-
-            headers.forEach(header => {
-                if (!currentKeys.includes(header)) {
-                    container.appendChild(createDraggableField(header));
-                }
-            });
-        }
-
-        // Populate selected association fields area
-        function populateSelectedKeys(fields, type) {
-            const container = type === 'A' ? document.getElementById('selectedKeysA') : document.getElementById('selectedKeysB');
-            if (!container) {
-                console.error(`Container for selected keys (${type}) not found!`);
-                return;
-            }
-            container.innerHTML = '';
-            fields.forEach(field => {
-                container.appendChild(createSelectedField(field, type));
-            });
-        }
-
-        // Allow drag operation
-        function allowDrop(event) {
-            event.preventDefault();
-        }
-
-        // Handle drop operation
-        function handleDrop(event, type) {
-            event.preventDefault();
-            event.currentTarget.classList.remove('drag-over');
-            const fieldName = event.dataTransfer.getData('text/plain');
-
-            const targetKeys = type === 'A' ? currentKeyAFields : currentKeyBFields;
-            if (!targetKeys.includes(fieldName)) {
-                if (type === 'A') {
-                    currentKeyAFields.push(fieldName);
-                } else {
-                    currentKeyBFields.push(fieldName);
-                }
-                updateFieldDisplays();
-            }
-        }
-        window.allowDrop = allowDrop;
-        window.handleDrop = handleDrop;
-
-        // Remove selected field
-        function removeSelectedField(fieldName, type) {
-            if (type === 'A') {
-                currentKeyAFields = currentKeyAFields.filter(key => key !== fieldName);
-            } else {
-                currentKeyBFields = currentKeyBFields.filter(key => key !== fieldName);
-            }
-            updateFieldDisplays();
-        }
-
-        // 拖拽排序支持 for selectedKeysA/B
-        function enableDragSort(containerId, currentKeys, updateCallback) {
-            const container = document.getElementById(containerId);
-            let dragIndex = null;
-            container.addEventListener('dragstart', function(e) {
-                if (e.target.classList.contains('field-item')) {
-                    dragIndex = Array.from(container.children).indexOf(e.target);
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('text/plain', '');
-                    setTimeout(() => e.target.classList.add('dragging'), 0);
-                }
-            });
-            container.addEventListener('dragend', function(e) {
-                if (e.target.classList.contains('field-item')) {
-                    e.target.classList.remove('dragging');
-                }
-            });
-            container.addEventListener('dragover', function(e) {
-                e.preventDefault();
-                const dragging = container.querySelector('.dragging');
-                const after = getDragAfterElement(container, e.clientX, e.clientY);
-                if (after == null) {
-                    container.appendChild(dragging);
-                } else {
-                    container.insertBefore(dragging, after);
-                }
-            });
-            container.addEventListener('drop', function(e) {
-                e.preventDefault();
-                const items = Array.from(container.querySelectorAll('.field-item'));
-                const newOrder = items.map(item => item.dataset.field);
-                currentKeys.length = 0;
-                newOrder.forEach(f => currentKeys.push(f));
-                if (updateCallback) updateCallback();
-            });
-        }
-        function getDragAfterElement(container, x, y) {
-            const items = [...container.querySelectorAll('.field-item:not(.dragging)')];
-            return items.find(item => {
-                const rect = item.getBoundingClientRect();
-                return y < rect.top + rect.height / 2;
-            }) || null;
-        }
-        // 在updateFieldDisplays后调用
+        // 在updateFieldDisplays后渲染左右表预览
         function updateFieldDisplays() {
             const headersA = dataA.length > 0 ? Object.keys(dataA[0]) : [];
             const headersB = dataB.length > 0 ? Object.keys(dataB[0]) : [];
@@ -540,6 +356,11 @@
             // 启用拖拽排序
             enableDragSort('selectedKeysA', currentKeyAFields, null);
             enableDragSort('selectedKeysB', currentKeyBFields, null);
+            // 渲染左右表预览
+            const tableAPreview = document.getElementById('tableAPreview');
+            const tableBPreview = document.getElementById('tableBPreview');
+            if (tableAPreview) renderTablePreview(dataA, tableAPreview, currentKeyAFields);
+            if (tableBPreview) renderTablePreview(dataB, tableBPreview, currentKeyBFields);
         }
 
         // 日期格式化函数，转为yyyy/M/d
@@ -586,7 +407,105 @@
             return data.csv_string;
         }
 
-        // 修改performComparison，优先用后端join接口
+        // 渲染分页控件
+        function renderComparePagination(container, total, page, perPage, onPageChange) {
+            compareTotalPages = Math.max(1, Math.ceil(total / perPage));
+            let html = '<div class="flex justify-between items-center mb-2">';
+            html += `<div>共 ${total} 条，比对字段：<span class='font-bold text-blue-600'>${[...new Set([...currentKeyAFields, ...currentKeyBFields])].join(', ')}</span></div>`;
+            html += '<div class="flex items-center gap-2">';
+            html += `<button class="px-2 py-1 border rounded ${page<=1?'bg-gray-200 text-gray-400':'bg-white'}" ${page<=1?'disabled':''} onclick="changeComparePage(1)">首页</button>`;
+            html += `<button class="px-2 py-1 border rounded ${page<=1?'bg-gray-200 text-gray-400':'bg-white'}" ${page<=1?'disabled':''} onclick="changeComparePage(${page-1})">上一页</button>`;
+            html += `<span>第 ${page} / ${compareTotalPages} 页</span>`;
+            html += `<button class="px-2 py-1 border rounded ${page>=compareTotalPages?'bg-gray-200 text-gray-400':'bg-white'}" ${page>=compareTotalPages?'disabled':''} onclick="changeComparePage(${page+1})">下一页</button>`;
+            html += `<button class="px-2 py-1 border rounded ${page>=compareTotalPages?'bg-gray-200 text-gray-400':'bg-white'}" ${page>=compareTotalPages?'disabled':''} onclick="changeComparePage(${compareTotalPages})">末页</button>`;
+            html += `<select id="comparePerPageSelect" class="ml-2 border rounded" onchange="changeComparePerPage()">
+                        <option value="500" ${perPage==500?'selected':''}>500/页</option>
+                        <option value="1000" ${perPage==1000?'selected':''}>1000/页</option>
+                    </select>`;
+            html += '</div></div>';
+            container.innerHTML = html;
+        }
+        function changeComparePage(page) {
+            comparePage = Math.max(1, Math.min(page, compareTotalPages));
+            renderCompareTable(compareRowsCache, document.getElementById('comparisonResults'));
+        }
+        function changeComparePerPage() {
+            const sel = document.getElementById('comparePerPageSelect');
+            comparePerPage = parseInt(sel.value);
+            comparePage = 1;
+            renderCompareTable(compareRowsCache, document.getElementById('comparisonResults'));
+        }
+
+        // 表名中英文映射（需与后端保持一致）
+        const tableNameMap = {
+            'customer_redemption_details': '客户原始兑付明细',
+            'customer_flow': '客户流向',
+            'activity_plan': '活动方案',
+            'output_results': '输出结果'
+        };
+
+        // 修改比对结果渲染函数，表头上方加“左表（表名）”“右表（表名）”
+        function renderCompareTable(rows, container) {
+            if (!container) {
+                console.error("Comparison results container not found!");
+                return;
+            }
+            container.innerHTML = '';
+            if (!rows || rows.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">无比对结果。</p>';
+                return;
+            }
+            compareRowsCache = rows;
+            // 只显示关联字段
+            const leftFields = currentKeyAFields;
+            const rightFields = currentKeyBFields.filter(f => !leftFields.includes(f));
+            const showFields = [...leftFields, ...rightFields];
+            const splitIndex = leftFields.length - 1; // 左表最后一个字段索引
+            // 获取表名
+            const leftTableKey = document.getElementById('leftTableSelect')?.value || '';
+            const rightTableKey = document.getElementById('rightTableSelect')?.value || '';
+            const leftTableName = tableNameMap[leftTableKey] || leftTableKey;
+            const rightTableName = tableNameMap[rightTableKey] || rightTableKey;
+            // 分页
+            const total = rows.length;
+            renderComparePagination(container, total, comparePage, comparePerPage, changeComparePage);
+            let tableHtml = '<table class="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">';
+            // 新增：表头上方加一行
+            tableHtml += '<thead>';
+            tableHtml += '<tr class="bg-header">';
+            if(leftFields.length>0) tableHtml += `<th colspan="${leftFields.length}" class="text-center text-base font-bold border-b border-gray-300" style="border-right:2px solid #888;">左表（${leftTableName}）</th>`;
+            if(rightFields.length>0) tableHtml += `<th colspan="${rightFields.length}" class="text-center text-base font-bold border-b border-gray-300">右表（${rightTableName}）</th>`;
+            tableHtml += '</tr>';
+            // 字段名行
+            tableHtml += '<tr class="bg-header">';
+            showFields.forEach((header, idx) => {
+                let style = '';
+                if (idx === splitIndex) style = 'border-right:2px solid #888;';
+                tableHtml += `<th class="py-2 px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style="${style}">${header}</th>`;
+            });
+            tableHtml += '</tr></thead>';
+            tableHtml += '<tbody>';
+            const startIdx = (comparePage-1)*comparePerPage;
+            const endIdx = Math.min(startIdx+comparePerPage, total);
+            for(let i=startIdx;i<endIdx;i++){
+                const row = rows[i];
+                let rowClass = '';
+                if(row.type==='matched') rowClass='bg-match';
+                else if(row.type==='left_only') rowClass='bg-left-only';
+                else if(row.type==='right_only') rowClass='bg-right-only';
+                tableHtml += `<tr class="hover:bg-gray-50 ${rowClass}">`;
+                showFields.forEach((header, idx) => {
+                    let style = '';
+                    if (idx === splitIndex) style = 'border-right:2px solid #888;';
+                    tableHtml += `<td class="py-2 px-4 border-b border-gray-200" style="${style}">${row.data[header]||''}</td>`;
+                });
+                tableHtml += '</tr>';
+            }
+            tableHtml += '</tbody></table>';
+            container.innerHTML += tableHtml;
+        }
+
+        // 修改performComparison，调用renderCompareTable时重置comparePage
         async function performComparison() {
             const comparisonResults = document.getElementById('comparisonResults');
             if (dataA.length === 0 && dataB.length === 0) {
@@ -614,84 +533,50 @@
                 date_fields = {A: '业务日期', B: '进货日期'};
             }
             // 优先用后端join
+            let matchedRows = [];
             try {
                 comparisonResults.innerHTML = '<p class="text-blue-500 text-center py-4">正在请求后端比对...</p>';
                 const csv = await fetchCompareJoin(tableAName, tableBName, keyAFields, keyBFields, currentDbConfig, date_fields);
                 // 解析csv并渲染
                 const result = parseCSV(csv);
-                if (!result.data || result.data.length === 0) {
-                    comparisonResults.innerHTML = '<p class="text-red-500 text-center py-4">无匹配数据（后端比对结果为空）。</p>';
-                    return;
+                if (result.data && result.data.length > 0) {
+                    matchedRows = result.data.map(row => ({type: 'matched', data: row}));
                 }
-                renderCompareTable(result.data, comparisonResults);
-                return;
             } catch (e) {
                 comparisonResults.innerHTML = `<p class='text-red-500 text-center py-4'>后端比对失败：${e.message}，将尝试前端比对...</p>`;
-                // 兜底：前端比对
             }
-            // 兜底：前端比对
-            const missingKeysA = keyAFields.filter(key => dataA.length > 0 && !Object.prototype.hasOwnProperty.call(dataA[0], key));
-            const missingKeysB = keyBFields.filter(key => dataB.length > 0 && !Object.prototype.hasOwnProperty.call(dataB[0], key));
-            if (missingKeysA.length > 0) {
-                comparisonResults.innerHTML = `<p class="text-red-500 text-center py-4">表A中找不到关联字段: "${missingKeysA.join(', ')}"</p>`;
-                return;
-            }
-            if (missingKeysB.length > 0) {
-                comparisonResults.innerHTML = `<p class="text-red-500 text-center py-4">表B中找不到关联字段: "${missingKeysB.join(', ')}"</p>`;
-                return;
-            }
-            const results = [];
+            // 前端补充left_only/right_only
             const matchedBIndices = new Set();
-            dataA.forEach(rowA => {
+            const leftOnlyRows = [];
+            const rightOnlyRows = [];
+            // 先用前端逻辑找出left_only/right_only
+            dataA.forEach((rowA, idxA) => {
                 let matched = false;
                 for (let i = 0; i < dataB.length; i++) {
                     const rowB = dataB[i];
                     if (isMatch(rowA, rowB, keyAFields, keyBFields, tableAName, tableBName)) {
                         matched = true;
                         matchedBIndices.add(i);
-                        const combinedRow = { ...rowA };
-                        let hasDiff = false;
-                        allHeaders.forEach(header => {
-                            if (keyAFields.includes(header) || keyBFields.includes(header)) {
-                                return;
-                            }
-                            if (!Object.prototype.hasOwnProperty.call(combinedRow, header)) {
-                                combinedRow[header] = rowB[header];
-                            } else if (Object.prototype.hasOwnProperty.call(rowB, header) && combinedRow[header] !== rowB[header]) {
-                                combinedRow[`${header}_diff`] = true;
-                                combinedRow[`${header}_val_A`] = combinedRow[header];
-                                combinedRow[`${header}_val_B`] = rowB[header];
-                                hasDiff = true;
-                            }
-                        });
-                        matchedResults.push({
-                            type: hasDiff ? 'matched_diff' : 'matched',
-                            data: combinedRow
-                        });
                         break;
                     }
                 }
                 if (!matched) {
-                    leftOnlyResults.push({ type: 'left_only', data: rowA });
+                    leftOnlyRows.push({type: 'left_only', data: rowA});
                 }
             });
-            dataB.forEach((rowB, index) => {
-                if (!matchedBIndices.has(index)) {
-                    rightOnlyResults.push({ type: 'right_only', data: rowB });
+            dataB.forEach((rowB, idxB) => {
+                if (!matchedBIndices.has(idxB)) {
+                    rightOnlyRows.push({type: 'right_only', data: rowB});
                 }
             });
-            // 只显示匹配上的记录
-            const resultsOrdered = [...matchedResults];
-            resultsOrdered.sort((a, b) => {
-                if (keyAFields.length > 0) {
-                    const valA = a.data[keyAFields[0]] || a.data[keyBFields[0]];
-                    const valB = b.data[keyAFields[0]] || b.data[keyBFields[0]];
-                    if (valA < valB) return -1;
-                    if (valA > valB) return 1;
-                }
-                return 0;
-            });
-            renderComparisonResults(resultsOrdered, allHeaders, keyAFields, keyBFields);
+            // 合并，先matched再left_only再right_only
+            const allRows = [...matchedRows, ...leftOnlyRows, ...rightOnlyRows];
+            if (allRows.length === 0) {
+                comparisonResults.innerHTML = '<p class="text-red-500 text-center py-4">无比对结果。</p>';
+                return;
+            }
+            comparePage = 1;
+            renderCompareTable(allRows, comparisonResults);
         }
 
         // Event listener: Save current comparison
@@ -800,85 +685,217 @@
 
         // Function to load table data into input and preview based on table name
         async function loadTableData(type, tableName) {
-            const tableInput = type === 'A' ? document.getElementById('tableAInput') : document.getElementById('tableBInput');
-            const tablePreview = type === 'A' ? document.getElementById('tableAPreview') : document.getElementById('tableBPreview');
-            const tableTab = type === 'A' ? document.getElementById('leftPreviewTab') : document.getElementById('rightPreviewTab');
-
-            if (!tableInput || !tablePreview || !tableTab) {
-                console.error(`Missing DOM elements for type ${type} table data loading.`);
+            if (!tableName) {
+                if (type === 'A') dataA = [];
+                else dataB = [];
+                updateFieldDisplays();
                 return;
             }
-
-            if (tableName) {
-                try {
-                    const csvString = await fetchTableData(tableName, currentDbConfig);
-                    tableInput.value = csvString;
-                    tableTab.textContent = `${tableName} (${type === 'A' ? '左表' : '右表'})`; // Update tab name
-                    const result = parseCSV(csvString);
-                    if (type === 'A') {
-                        dataA = result.data;
-                    } else {
-                        dataB = result.data;
-                    }
-                    renderTable(result.data, tablePreview);
-
-                    const headersA = dataA.length > 0 ? Object.keys(dataA[0]) : [];
-                    const headersB = dataB.length > 0 ? Object.keys(dataB[0]) : [];
-                    allHeaders = Array.from(new Set([...headersA, ...headersB]));
-
-                    updateFieldDisplays(); // Ensure fields are updated after data load
-                } catch (error) {
-                    console.error(`Error loading data for table ${tableName}:`, error);
-                    alert(`加载表格 "${tableName}" 数据失败: ${error.message}`);
-                    tableInput.value = '';
-                    tableTab.textContent = `${type === 'A' ? '左表' : '右表'}`;
-                    if (type === 'A') dataA = []; else dataB = [];
-                    renderTable([], tablePreview);
-                    updateFieldDisplays();
-                }
-            } else {
-                tableInput.value = '';
-                tableTab.textContent = `${type === 'A' ? '左表' : '右表'}`; // Reset tab name
+            try {
+                const csvString = await fetchTableData(tableName, currentDbConfig);
+                const result = parseCSV(csvString);
                 if (type === 'A') {
-                    dataA = [];
+                    dataA = result.data;
                 } else {
-                    dataB = [];
+                    dataB = result.data;
                 }
-                renderTable([], tablePreview);
-                updateFieldDisplays(); // Clear available fields
+                updateFieldDisplays();
+            } catch (error) {
+                if (type === 'A') dataA = [];
+                else dataB = [];
+                updateFieldDisplays();
             }
         }
 
-        // Populate table select dropdowns
-        async function populateTableSelects() {
-            const leftTableSelect = document.getElementById('leftTableSelect');
-            const rightTableSelect = document.getElementById('rightTableSelect');
+        // Populate available fields area
+        function populateAvailableFields(headers, type) {
+            const container = type === 'A' ? document.getElementById('availableFieldsA') : document.getElementById('availableFieldsB');
+            if (!container) {
+                console.error(`Container for available fields (${type}) not found!`);
+                return;
+            }
+            container.innerHTML = '';
+            const currentKeys = type === 'A' ? currentKeyAFields : currentKeyBFields;
+            headers.forEach(header => {
+                if (!currentKeys.includes(header)) {
+                    container.appendChild(createDraggableField(header));
+                }
+            });
+        }
 
-            if (!leftTableSelect || !rightTableSelect) {
-                console.error("Table select dropdowns not found!");
+        // Populate selected keys area
+        function populateSelectedKeys(selectedFields, type) {
+            const container = type === 'A' ? document.getElementById('selectedKeysA') : document.getElementById('selectedKeysB');
+            if (!container) {
+                console.error(`Container for selected keys (${type}) not found!`);
+                return;
+            }
+            container.innerHTML = '';
+            selectedFields.forEach(header => {
+                container.appendChild(createDraggableField(header, true)); // true for selected
+            });
+        }
+
+        // Helper function to create a draggable field item
+        function createDraggableField(header, isSelected = false) {
+            const fieldItem = document.createElement('div');
+            fieldItem.className = `field-item ${isSelected ? 'bg-indigo-200' : ''}`; // Indicate selected fields
+            fieldItem.draggable = true;
+            fieldItem.setAttribute('data-header', header);
+            fieldItem.setAttribute('data-type', isSelected ? 'selected' : 'available'); // Indicate type
+
+            const fieldText = document.createElement('span');
+            fieldText.textContent = header;
+            fieldItem.appendChild(fieldText);
+
+            const removeBtn = document.createElement('span');
+            removeBtn.textContent = ' ×';
+            removeBtn.className = 'remove-btn';
+            fieldItem.appendChild(removeBtn);
+
+            fieldItem.addEventListener('dragstart', dragStart);
+            fieldItem.addEventListener('dragend', dragEnd);
+            fieldItem.addEventListener('dragover', allowDrop);
+            fieldItem.addEventListener('drop', handleDrop);
+            fieldItem.addEventListener('click', toggleSelection);
+            fieldItem.addEventListener('contextmenu', showContextMenu); // Right-click for removal
+
+            return fieldItem;
+        }
+
+        // Drag and Drop functions
+        function dragStart(event) {
+            event.dataTransfer.setData("text/plain", event.target.getAttribute("data-header"));
+            event.dataTransfer.setData("text/type", event.target.getAttribute("data-type"));
+            event.target.classList.add('dragging');
+        }
+
+        function dragEnd(event) {
+            event.target.classList.remove('dragging');
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function handleDrop(event, targetType) {
+            event.preventDefault();
+            const header = event.dataTransfer.getData("text/plain");
+            const type = event.dataTransfer.getData("text/type");
+
+            if (type === 'available' && targetType === 'selected') {
+                addSelectedKey(header);
+            } else if (type === 'selected' && targetType === 'available') {
+                removeSelectedKey(header);
+            }
+        }
+
+        function toggleSelection(event) {
+            const fieldItem = event.target;
+            const header = fieldItem.getAttribute("data-header");
+            const type = fieldItem.getAttribute("data-type");
+
+            if (type === 'available') {
+                addSelectedKey(header);
+            } else if (type === 'selected') {
+                removeSelectedKey(header);
+            }
+        }
+
+        function showContextMenu(event) {
+            event.preventDefault();
+            const fieldItem = event.target.closest('.field-item');
+            if (!fieldItem) return;
+
+            const header = fieldItem.getAttribute("data-header");
+            const type = fieldItem.getAttribute("data-type");
+
+            if (type === 'selected') {
+                const confirm = confirm(`确定要从已选字段中移除 "${header}" 吗？`);
+                if (confirm) {
+                    removeSelectedKey(header);
+                }
+            }
+        }
+
+        function addSelectedKey(header) {
+            if (!currentKeyAFields.includes(header) && !currentKeyBFields.includes(header)) {
+                const fieldItem = createDraggableField(header, true);
+                const selectedKeysContainer = document.getElementById('selectedKeysA'); // Default to A
+                if (selectedKeysContainer.children.length > 0) {
+                    selectedKeysContainer.insertBefore(fieldItem, selectedKeysContainer.firstChild);
+                } else {
+                    selectedKeysContainer.appendChild(fieldItem);
+                }
+                currentKeyAFields.push(header); // Assuming A for now, will be updated
+                currentKeyBFields.push(header); // Assuming B for now, will be updated
+                updateFieldDisplays();
+            }
+        }
+
+        function removeSelectedKey(header) {
+            const fieldItem = document.querySelector(`.field-item[data-header="${header}"]`);
+            if (fieldItem) {
+                fieldItem.remove();
+                currentKeyAFields = currentKeyAFields.filter(h => h !== header);
+                currentKeyBFields = currentKeyBFields.filter(h => h !== header);
+                updateFieldDisplays();
+            }
+        }
+
+        // Enable drag and drop sorting for selected keys
+        function enableDragSort(containerId, fields, type) {
+            const container = document.getElementById(containerId);
+            if (!container) {
+                console.error(`Container for drag and drop sorting (${containerId}) not found!`);
                 return;
             }
 
-            leftTableSelect.innerHTML = '<option value="">选择表格...</option>';
-            rightTableSelect.innerHTML = '<option value="">选择表格...</option>';
+            let draggedItem = null;
+            let draggedOverItem = null;
 
-            try {
-                const tables = await fetchDatabaseTables(currentDbConfig); // 传递当前配置
-                tables.forEach(tableName => {
-                    const optionLeft = document.createElement('option');
-                    optionLeft.value = tableName;
-                    optionLeft.textContent = tableName;
-                    leftTableSelect.appendChild(optionLeft);
+            container.addEventListener('dragstart', function(event) {
+                draggedItem = event.target;
+                draggedItem.classList.add('dragging');
+            });
 
-                    const optionRight = document.createElement('option');
-                    optionRight.value = tableName;
-                    optionRight.textContent = tableName;
-                    rightTableSelect.appendChild(optionRight);
-                });
-            } catch (error) {
-                console.error("Error fetching table names:", error);
-                alert(`获取表格列表失败: ${error.message}`);
-            }
+            container.addEventListener('dragend', function(event) {
+                draggedItem = null;
+                draggedOverItem = null;
+                draggedItem.classList.remove('dragging');
+            });
+
+            container.addEventListener('dragover', function(event) {
+                event.preventDefault();
+                const target = event.target;
+                if (target.classList.contains('field-item')) {
+                    if (target.getAttribute('data-type') === 'selected') {
+                        if (draggedItem && draggedItem.getAttribute('data-type') === 'available') {
+                            container.insertBefore(draggedItem, target);
+                        }
+                    } else if (target.getAttribute('data-type') === 'available') {
+                        if (draggedItem && draggedItem.getAttribute('data-type') === 'selected') {
+                            container.insertBefore(draggedItem, target);
+                        }
+                    }
+                }
+            });
+
+            container.addEventListener('drop', function(event) {
+                event.preventDefault();
+                if (draggedItem && draggedOverItem) {
+                    const draggedHeader = draggedItem.getAttribute('data-header');
+                    const draggedType = draggedItem.getAttribute('data-type');
+                    const draggedOverHeader = draggedOverItem.getAttribute('data-header');
+                    const draggedOverType = draggedOverItem.getAttribute('data-type');
+
+                    if (draggedType === 'available' && draggedOverType === 'selected') {
+                        addSelectedKey(draggedHeader);
+                    } else if (draggedType === 'selected' && draggedOverType === 'available') {
+                        removeSelectedKey(draggedHeader);
+                    }
+                }
+            });
         }
 
         // Function to handle database connection (mocked)
@@ -945,6 +962,35 @@
                 newComparison(); // Reset the UI
             } else {
                 alert("删除操作已取消。");
+            }
+        }
+
+        // 获取所有表名并填充下拉框
+        async function populateTableSelects() {
+            const leftTableSelect = document.getElementById('leftTableSelect');
+            const rightTableSelect = document.getElementById('rightTableSelect');
+            if (!leftTableSelect || !rightTableSelect) {
+                console.error("Table select dropdowns not found!");
+                return;
+            }
+            leftTableSelect.innerHTML = '<option value="">选择表格...</option>';
+            rightTableSelect.innerHTML = '<option value="">选择表格...</option>';
+            try {
+                const tables = await fetchDatabaseTables(currentDbConfig); // 传递当前配置
+                tables.forEach(tableName => {
+                    const cn = tableNameMap[tableName] || tableName;
+                    const optionLeft = document.createElement('option');
+                    optionLeft.value = tableName;
+                    optionLeft.textContent = cn;
+                    leftTableSelect.appendChild(optionLeft);
+
+                    const optionRight = document.createElement('option');
+                    optionRight.value = tableName;
+                    optionRight.textContent = cn;
+                    rightTableSelect.appendChild(optionRight);
+                });
+            } catch (error) {
+                alert(`获取表格列表失败: ${error.message}`);
             }
         }
 
