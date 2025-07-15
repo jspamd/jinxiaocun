@@ -44,6 +44,10 @@ def clean_data_value(value, column_name):
         return None
     
     # 根据列名处理特殊数据
+    if '流入方编码' in column_name:
+        # 确保流入方编码作为字符串处理
+        return value_str
+    
     if '供货价' in column_name or '建议零售价' in column_name or '销售金额' in column_name or '结算金额' in column_name:
         # 数字列，尝试转换为数字
         try:
@@ -100,8 +104,8 @@ def import_excel_data(excel_file, table_name, connection):
         # 特殊处理活动方案表
         if 'activity_plan' in table_name:
             print("检测到活动方案表，使用特殊处理...")
-            # 读取原始数据
-            df_raw = pd.read_excel(excel_file, header=None)
+            # 读取原始数据时，强制将流入方编码列作为字符串处理
+            df_raw = pd.read_excel(excel_file, header=None, dtype={'流入方编码': str})
             print(f"原始数据行数: {len(df_raw)}")
             print(f"原始数据列数: {len(df_raw.columns)}")
             
@@ -138,7 +142,14 @@ def import_excel_data(excel_file, table_name, connection):
             print(f"清理后列名: {list(df.columns)}")
             
         else:
-            df = pd.read_excel(excel_file)
+            # 在导入数据时，强制将物料编码、流出方编码、出库单价、批次、金额列作为字符串处理
+            if 'customer_flow' in table_name:
+                df = pd.read_excel(excel_file, dtype={'物料编码': str, '流出方编码': str, '出库单价': str, '批次': str, '金额': str})
+
+            if 'output_results' in table_name:
+                df = pd.read_excel(excel_file, dtype={'物料编码': str, '流出方编码': str, '批次': str})
+            else:
+                df = pd.read_excel(excel_file, dtype={'流入方编码': str})
             # 清理列名
             df.columns = [col.replace(' ', '_').replace('-', '_').replace('(', '').replace(')', '') for col in df.columns]
         

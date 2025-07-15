@@ -1,4 +1,4 @@
--- Active: 1748437189209@@127.0.0.1@3306
+-- Active: 1748437189209@@127.0.0.1@3306@jinxiaocun_db
 -- 创建数据库
 CREATE DATABASE IF NOT EXISTS jinxiaocun_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -32,17 +32,17 @@ CREATE TABLE IF NOT EXISTS customer_redemption_details (
 CREATE TABLE IF NOT EXISTS customer_flow (
     id INT AUTO_INCREMENT PRIMARY KEY,
     进货日期 VARCHAR(255),
-    流入方编码 INT,
+    流入方编码 VARCHAR(255),
     流入方别名 VARCHAR(255),
     流入方名称 VARCHAR(255),
-    物料编码 INT,
+    物料编码 VARCHAR(255),
     物料名称 VARCHAR(255),
     销售数量 INT,
-    出库单价 INT,
-    金额 INT,
-    流出方编码 INT,
+    出库单价 DECIMAL(10,2),
+    金额 DECIMAL(10,2),
+    流出方编码 VARCHAR(255),
     流出方名称 VARCHAR(255),
-    批次 INT,
+    批次 VARCHAR(255),
     规格型号 VARCHAR(255),
     当期日期 DATE DEFAULT (CURRENT_DATE)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -66,19 +66,19 @@ CREATE TABLE IF NOT EXISTS activity_plan (
 CREATE TABLE IF NOT EXISTS output_results (
     id INT AUTO_INCREMENT PRIMARY KEY,
     进货日期 DATETIME,
-    流入方编码 INT,
+    流入方编码 VARCHAR(255),
     流入方别名 VARCHAR(255),
     流入方名称 VARCHAR(255),
-    物料编码 INT,
+    物料编码 VARCHAR(255),
     物料名称 VARCHAR(255),
     销售数量 INT,
     出库单价 DECIMAL(10,2),
     活动政策 INT,
     赠品金额 INT,
     销售金额 DECIMAL(10,2),
-    流出方编码 INT,
+    流出方编码 VARCHAR(255),
     流出方名称 VARCHAR(255),
-    批次 INT,
+    批次 VARCHAR(255),
     规格型号 VARCHAR(255),
     渠道关系 DECIMAL(10,2),
     流入人代码 VARCHAR(255),

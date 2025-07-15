@@ -686,6 +686,9 @@ def query_data():
             <button class="nav-btn" onclick="exportExcel()">
                 <i class="fas fa-file-excel"></i> 导出 Excel
             </button>
+            <button class="nav-btn" onclick="openAddDialog()">
+                <i class="fas fa-file-excel"></i> 新增数据
+            </button>
             <a href="/" class="nav-btn">
                 <i class="fas fa-arrow-left"></i> 返回上传
             </a>
@@ -723,8 +726,7 @@ def query_data():
                     <label style="margin-left:10px;">排序方向：</label>
                     <select id="sortOrdersSelect" multiple></select>
                 </div>
-                <div class="search-box" style="display: flex; align-items: center; gap: 10px;">
-                    <button class="search-btn" style="margin:0;" onclick="openAddDialog()">新增</button>
+                <div class="search-box" style="display: flex; align-items: center; gap: 10px;">                   
                     <div style="position:relative;display:inline-block;">
                         <input type="text" id="searchInput" class="nice-input" placeholder="搜索关键词..." value="{{ search_term }}" style="padding-right:28px;">
                         <span id="clearSearchBtn" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;color:#bbb;">×</span>
@@ -788,7 +790,7 @@ def query_data():
                                     <td {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col" title="{{ row[column.Field] }}"{% endif %}>{{ row[column.Field] or '' }}</td>
                                 {% endfor %}
                                 <td>
-                                    <button class="button" style="background: linear-gradient(90deg, #4f8cff 20%, #6ed0ff 50%); color: #fff; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 14px; " onclick="openEditDialog({{ loop.index0 }})">编辑</button>
+                                    <button class="button" style="background: linear-gradient(90deg, #4f8cff 0%, #6ed0ff 100%); color: #fff; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 14px; " onclick="openEditDialog({{ loop.index0 }})">编辑</button>
                                     <button class="button" style="background: linear-gradient(90deg, #4f8cff 20%, #6ed0ff 50%); color: #fff; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 14px; " onclick= "deleteRow({{ loop.index0 }})">删除</button>
                                 </td>
                             </tr>
@@ -1912,6 +1914,9 @@ QUERY_TEMPLATE = r'''
             </button>
             <button class="nav-btn" onclick="exportExcel()">
                 <i class="fas fa-file-excel"></i> 导出 Excel
+            </button>
+            <button class="nav-btn" onclick="openAddDialog()">
+                <i class="fas fa-file-excel"></i> 新增数据
             </button>
             <a href="/" class="nav-btn">
                 <i class="fas fa-arrow-left"></i> 返回上传
