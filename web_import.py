@@ -59,7 +59,7 @@ def format_sql_with_params(sql, params):
     
     return formatted_sql
 
-def get_table_data(table_name, page=1, per_page=50, sort_field=None, sort_order='ASC', search_term=None, fields=None):
+def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order='ASC', search_term=None, fields=None):
     """获取表数据，支持分页、排序和搜索，可选字段"""
     try:
         conn = create_connection()
@@ -398,7 +398,7 @@ def query_data():
     """查询数据页面"""
     table_name = request.args.get('table', 'customer_redemption_details')
     page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 50))
+    per_page = int(request.args.get('per_page', 500))
     sort_field = request.args.get('sort_field')
     sort_order = request.args.get('sort_order', 'ASC')
     search_term = request.args.get('search', '')
@@ -722,7 +722,7 @@ def query_data():
                 </div>
                 <div class="controls" style="display: flex; align-items: center; gap: 20px;">
                     <label for="perPageSelect">每页显示行数：</label>
-                    <select id="perPageSelect" onchange="changePerPage()">
+                    <select id="perPageSelect" onchange="changePerPage()">                    
                         <option value="500" selected>500</option>
                         <option value="1000">1000</option>
                     </select>
@@ -1291,7 +1291,7 @@ def api_data():
     """API接口，返回JSON格式的数据"""
     table_name = request.args.get('table', 'customer_redemption_details')
     page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 50))
+    per_page = int(request.args.get('per_page', 500))
     sort_field = request.args.get('sort_field')
     sort_order = request.args.get('sort_order', 'ASC')
     search_term = request.args.get('search', '')
