@@ -356,6 +356,9 @@
             // 启用拖拽排序
             enableDragSort('selectedKeysA', currentKeyAFields, null);
             enableDragSort('selectedKeysB', currentKeyBFields, null);
+            // 支持空白区域拖入
+            enableDropToSelected('selectedKeysA', 'A');
+            enableDropToSelected('selectedKeysB', 'B');
             // 渲染左右表预览
             const tableAPreview = document.getElementById('tableAPreview');
             const tableBPreview = document.getElementById('tableBPreview');
@@ -843,59 +846,77 @@
             }
         }
 
-        // Enable drag and drop sorting for selected keys
+        // Enable drag and drop sorting for selected keys（修正版，原生实现）
         function enableDragSort(containerId, fields, type) {
             const container = document.getElementById(containerId);
-            if (!container) {
-                console.error(`Container for drag and drop sorting (${containerId}) not found!`);
-                return;
-            }
+            if (!container) return;
 
             let draggedItem = null;
-            let draggedOverItem = null;
 
-            container.addEventListener('dragstart', function(event) {
-                draggedItem = event.target;
-                draggedItem.classList.add('dragging');
+            // 先解绑所有事件，防止重复绑定
+            container.querySelectorAll('.field-item').forEach(item => {
+                item.ondragstart = null;
+                item.ondragover = null;
+                item.ondrop = null;
+                item.ondragend = null;
             });
 
-            container.addEventListener('dragend', function(event) {
-                draggedItem = null;
-                draggedOverItem = null;
-                draggedItem.classList.remove('dragging');
-            });
-
-            container.addEventListener('dragover', function(event) {
-                event.preventDefault();
-                const target = event.target;
-                if (target.classList.contains('field-item')) {
-                    if (target.getAttribute('data-type') === 'selected') {
-                        if (draggedItem && draggedItem.getAttribute('data-type') === 'available') {
-                            container.insertBefore(draggedItem, target);
-                        }
-                    } else if (target.getAttribute('data-type') === 'available') {
-                        if (draggedItem && draggedItem.getAttribute('data-type') === 'selected') {
-                            container.insertBefore(draggedItem, target);
-                        }
+            container.querySelectorAll('.field-item').forEach(item => {
+                item.ondragstart = function(e) {
+                    draggedItem = item;
+                    setTimeout(() => item.classList.add('dragging'), 0);
+                };
+                item.ondragend = function(e) {
+                    item.classList.remove('dragging');
+                    draggedItem = null;
+                    // 拖拽结束后同步顺序
+                    const newOrder = [];
+                    container.querySelectorAll('.field-item').forEach(i => {
+                        newOrder.push(i.getAttribute('data-header'));
+                    });
+                    if (containerId === 'selectedKeysA') {
+                        currentKeyAFields = newOrder;
+                    } else if (containerId === 'selectedKeysB') {
+                        currentKeyBFields = newOrder;
                     }
-                }
-            });
-
-            container.addEventListener('drop', function(event) {
-                event.preventDefault();
-                if (draggedItem && draggedOverItem) {
-                    const draggedHeader = draggedItem.getAttribute('data-header');
-                    const draggedType = draggedItem.getAttribute('data-type');
-                    const draggedOverHeader = draggedOverItem.getAttribute('data-header');
-                    const draggedOverType = draggedOverItem.getAttribute('data-type');
-
-                    if (draggedType === 'available' && draggedOverType === 'selected') {
-                        addSelectedKey(draggedHeader);
-                    } else if (draggedType === 'selected' && draggedOverType === 'available') {
-                        removeSelectedKey(draggedHeader);
+                    updateFieldDisplays();
+                };
+                item.ondragover = function(e) {
+                    e.preventDefault();
+                    if (draggedItem && draggedItem !== item) {
+                        container.insertBefore(draggedItem, item);
                     }
-                }
+                };
+                item.ondrop = function(e) {
+                    e.preventDefault();
+                    if (draggedItem && draggedItem !== item) {
+                        container.insertBefore(draggedItem, item);
+                    }
+                };
             });
+        }
+
+        // 让“已选关联字段”容器支持空白区域拖入
+        function enableDropToSelected(containerId, type) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.ondragover = function(e) {
+                e.preventDefault();
+            };
+            container.ondrop = function(e) {
+                e.preventDefault();
+                // 只处理从可用字段拖入
+                const header = e.dataTransfer.getData('text/plain');
+                const dragType = e.dataTransfer.getData('text/type');
+                if (dragType === 'available' && header) {
+                    if (containerId === 'selectedKeysA' && !currentKeyAFields.includes(header)) {
+                        currentKeyAFields.push(header);
+                    } else if (containerId === 'selectedKeysB' && !currentKeyBFields.includes(header)) {
+                        currentKeyBFields.push(header);
+                    }
+                    updateFieldDisplays();
+                }
+            };
         }
 
         // Function to handle database connection (mocked)
