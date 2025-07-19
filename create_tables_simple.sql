@@ -31,19 +31,23 @@ CREATE TABLE IF NOT EXISTS customer_redemption_details (
 -- 2. 客户流向表
 CREATE TABLE IF NOT EXISTS customer_flow (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    进货日期 VARCHAR(255),
+    销售日期 VARCHAR(255),
     流入方编码 VARCHAR(255),
     流入方别名 VARCHAR(255),
     流入方名称 VARCHAR(255),
     物料编码 VARCHAR(255),
-    物料名称 VARCHAR(255),
-    销售数量 INT,
-    出库单价 DECIMAL(10,2),
+    货品名称 VARCHAR(255),
+    货品数量 INT,
+    流向价 DECIMAL(10,2),
     金额 DECIMAL(10,2),
     流出方编码 VARCHAR(255),
     流出方名称 VARCHAR(255),
-    批次 VARCHAR(255),
-    规格型号 VARCHAR(255),
+    批号 VARCHAR(255),
+    货品规格 VARCHAR(255),
+    流入方组织 VARCHAR(255),
+    客户分线 VARCHAR(255),
+    供货价 DECIMAL(10,2),
+    流出方组织 VARCHAR(255),
     当期日期 DATE DEFAULT (CURRENT_DATE)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

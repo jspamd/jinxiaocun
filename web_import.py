@@ -168,7 +168,7 @@ def upload_file():
                 print(f"扩展名: {ext}")         # 调试输出
                 if allowed_file(filename):
                     # 判断文件名对应的表
-                    base = filename.split('.')[0]
+                    base = os.path.splitext(filename)[0]
                     table_name = FILENAME_TABLE_MAP.get(base)
                     if not table_name:
                         result_msgs.append(f'文件 {filename} 未识别为有效数据文件，已跳过。')
@@ -1448,7 +1448,7 @@ def api_output_results():
         for row in flow_rows:
             new_row = row.copy()
             # 活动政策
-            plan = plan_map.get(row.get('物料名称'))
+            plan = plan_map.get(row.get('货品名称'))
             policy = plan['活动政策'] if plan else ''
             new_row['活动政策'] = policy
             # 赠品金额
@@ -1460,10 +1460,9 @@ def api_output_results():
                     if base_qty > 0:
                         return base_amt * (int(qty) // base_qty)
                 return 0
-            new_row['赠品金额'] = parse_policy(policy, row.get('数量', 0))
-            # 其他字段（如渠道关系、流入人代码等）可直接从 row 拷贝或留空
-            # 这里假设这些字段已在客户流向表中，如没有可补充
-            for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织']:
+            new_row['赠品金额'] = parse_policy(policy, row.get('货品数量', 0))
+            # 字段补充
+            for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织', '客户分线', '供货价', '流出方组织', '物料编码']:
                 if col not in new_row:
                     new_row[col] = ''
             result_rows.append(new_row)
