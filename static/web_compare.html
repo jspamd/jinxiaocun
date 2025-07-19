@@ -239,7 +239,6 @@
             <div class="bg-gray-50 p-4 rounded-lg shadow-sm overflow-x-auto border border-gray-200">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xl font-semibold text-gray-700">比对结果</h2>
-                    <button onclick="exportComparisonResultsExcel()" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 ml-2">导出</button>
                     <button onclick="exportComparisonResultsHTML()" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 ml-2">导出</button>
                 </div>
                 <div id="comparisonResults" class="w-full text-sm">
@@ -650,36 +649,57 @@
             'output_results': '输出结果'
         };
 
-        // 修改比对结果渲染函数，表头上方加"左表（表名）""右表（表名）"
+        // 比对结果区域渲染，显示所有字段，支持分页，左右表分割线
         function renderCompareTable(rows, container) {
             window.compareRowsCache = rows || [];
-            if (!container) {
-                console.error("Comparison results container not found!");
-                return;
-            }
+            if (!container) return;
             container.innerHTML = '';
             if (!rows || rows.length === 0) {
                 container.innerHTML = '<p class="text-gray-500 text-center py-4">无比对结果。</p>';
                 return;
             }
-            // 获取后端返回的所有字段
+            // 分页参数
+            const pageSize = 500;
+            const total = rows.length;
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            window.comparePage = window.comparePage || 1;
+            if (window.comparePage > totalPages) window.comparePage = totalPages;
+            const startIdx = (window.comparePage - 1) * pageSize;
+            const endIdx = Math.min(startIdx + pageSize, total);
+            const pageRows = rows.slice(startIdx, endIdx);
             const allFields = window.compareFields || Object.keys(rows[0].data || {});
-            // 表头
-            let tableHtml = '<table class="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">';
+            let splitIdx = 0;
+            for (let i = 0; i < allFields.length; i++) {
+                if (allFields[i].startsWith('右表')) { splitIdx = i; break; }
+            }
+            // 先拼接分页控件
+            let tableHtml = `<div style="margin:16px 0;display:flex;justify-content:center;align-items:center;gap:10px;">`;
+            tableHtml += `<button onclick="window.comparePage=1;renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))" ${window.comparePage===1?'disabled':''}>首页</button>`;
+            tableHtml += `<button onclick="window.comparePage=Math.max(1,window.comparePage-1);renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))" ${window.comparePage===1?'disabled':''}>上一页</button>`;
+            tableHtml += `<span>第 ${window.comparePage} / ${totalPages} 页</span>`;
+            tableHtml += `<button onclick="window.comparePage=Math.min(${totalPages},window.comparePage+1);renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))" ${window.comparePage===totalPages?'disabled':''}>下一页</button>`;
+            tableHtml += `<button onclick="window.comparePage=${totalPages};renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))" ${window.comparePage===totalPages?'disabled':''}>末页</button>`;
+            tableHtml += `<span style='margin-left:16px;'>共 ${total} 条</span>`;
+            tableHtml += '</div>';
+            // 再拼接表格
+            tableHtml += '<table class="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">';
             tableHtml += '<thead><tr class="bg-header">';
-            allFields.forEach(header => {
-                tableHtml += `<th class="py-2 px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">${header}</th>`;
+            allFields.forEach((header, idx) => {
+                let style = '';
+                if (idx === splitIdx && idx !== 0) style = 'border-right:2px solid #888;';
+                tableHtml += `<th class="py-2 px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style="${style}">${header}</th>`;
             });
             tableHtml += '</tr></thead><tbody>';
-            // 数据
-            rows.forEach(row => {
+            pageRows.forEach(row => {
                 let rowClass = '';
                 if(row.type==='matched') rowClass='bg-match';
                 else if(row.type==='left_only') rowClass='bg-left-only';
                 else if(row.type==='right_only') rowClass='bg-right-only';
                 tableHtml += `<tr class="hover:bg-gray-50 ${rowClass}">`;
-                allFields.forEach(header => {
-                    tableHtml += `<td class="py-2 px-4 border-b border-gray-200">${row.data && row.data[header] !== undefined ? row.data[header] : ''}</td>`;
+                allFields.forEach((header, idx) => {
+                    let style = '';
+                    if (idx === splitIdx && idx !== 0) style = 'border-right:2px solid #888;';
+                    tableHtml += `<td class="py-2 px-4 border-b border-gray-200" style="${style}">${row.data && row.data[header] !== undefined ? row.data[header] : ''}</td>`;
                 });
                 tableHtml += '</tr>';
             });
@@ -1231,42 +1251,6 @@
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        }
-
-        function exportComparisonResultsExcel() {
-            if (!window.compareRowsCache || !Array.isArray(window.compareRowsCache) || window.compareRowsCache.length === 0) {
-                showGlobalMessage('暂无对比结果！');
-                return;
-            }
-            // 用页面显示的字段顺序导出（后端返回的fields）
-            const allFields = window.compareFields || Object.keys(window.compareRowsCache[0]?.data || {});
-            const ws_data = [allFields];
-            window.compareRowsCache.forEach(row => {
-                ws_data.push(allFields.map(f => row.data && row.data[f] !== undefined ? row.data[f] : ''));
-            });
-            const ws = XLSX.utils.aoa_to_sheet(ws_data);
-            allFields.forEach((_, idx) => {
-                const cell = ws[XLSX.utils.encode_cell({c: idx, r: 0})];
-                if (cell && !cell.s) cell.s = {};
-                if (cell) cell.s.fill = { patternType: "solid", fgColor: { rgb: "E2E8F0" } };
-                if (cell) cell.s.font = { bold: true };
-            });
-            window.compareRowsCache.forEach((row, i) => {
-                let bg = null;
-                if (row.type === 'matched') bg = 'D4EDDA';
-                if (row.type === 'left_only') bg = 'F8D7DA';
-                if (row.type === 'right_only') bg = 'D1ECF1';
-                if (bg) {
-                    allFields.forEach((_, idx) => {
-                        const cell = ws[XLSX.utils.encode_cell({c: idx, r: i+1})];
-                        if (cell && !cell.s) cell.s = {};
-                        if (cell) cell.s.fill = { patternType: "solid", fgColor: { rgb: bg } };
-                    });
-                }
-            });
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "比对结果");
-            XLSX.writeFile(wb, "comparison_results.xlsx");
         }
 
         function exportComparisonResultsHTML() {
