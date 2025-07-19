@@ -7,24 +7,13 @@ USE jinxiaocun_db;
 -- 1. 客户原始兑付明细表
 CREATE TABLE IF NOT EXISTS customer_redemption_details (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    结算金额 DECIMAL(10,2),
-    结束时间 VARCHAR(255),
     业务日期 VARCHAR(255),
-    计算基准项 DECIMAL(10,2),
-    政策编号 VARCHAR(255),
-    三级公司客户编码 VARCHAR(255),
-    开始时间 VARCHAR(255),
-    业务量 DECIMAL(10,2),
-    单价 DECIMAL(10,2),
     三级公司客户名称 VARCHAR(255),
     数量 INT,
-    细单编号 VARCHAR(255),
     规格 VARCHAR(255),
     批号 VARCHAR(255),
     本次结算金额 DECIMAL(10,2),
-    区域 DECIMAL(10,2),
     商品名称 VARCHAR(255),
-    单据编号 VARCHAR(255),
     金额 DECIMAL(10,2),
     当期日期 DATE DEFAULT (CURRENT_DATE)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

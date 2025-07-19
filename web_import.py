@@ -147,6 +147,17 @@ def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order
         print(f"数据库查询错误: {e}")
         return None
 
+# 在所有涉及customer_redemption_details表字段的地方，去除以下字段：
+# 结算金额、结束时间、计算基准项、政策编号、三级公司客户编码、开始时间、业务量、单价、细单编号、单据编号
+# 主要影响字段选择、表格显示、编辑/新增表单、导出等
+# 由于字段是动态获取的，核心是保证all_columns、result.columns、fields等不包含这些字段
+# 只需在获取字段后，过滤掉这些字段
+
+REMOVED_FIELDS = [
+    '结算金额', '结束时间', '计算基准项', '政策编号', '三级公司客户编码',
+    '开始时间', '业务量', '单价', '细单编号', '单据编号', '区域'
+]
+
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     result_msgs = []
@@ -393,7 +404,7 @@ btn.addEventListener('click', function(e) {
 </html>
 ''', result_msgs=result_msgs)
 
-# 修改query_data和api_data，增加fields参数
+# 修改query_data和api_data，增加字段过滤
 @app.route('/query')
 def query_data():
     """查询数据页面"""
@@ -422,6 +433,14 @@ def query_data():
         conn.close()
     except Exception as e:
         print(f"获取所有字段失败: {e}")
+    # 过滤掉已删除字段
+    if table_name == 'customer_redemption_details':
+        all_columns = [col for col in all_columns if col not in REMOVED_FIELDS]
+    # 保证show_columns也过滤
+    result_columns = result['columns']
+    if table_name == 'customer_redemption_details':
+        result_columns = [col for col in result_columns if col['Field'] not in REMOVED_FIELDS]
+        result['columns'] = result_columns
     
     return render_template_string(r'''
 <!DOCTYPE html>
@@ -699,7 +718,9 @@ def query_data():
                     <label>选择字段：</label>
                     <select id="fieldsSelect" multiple class="nice-input">
                         {% for col in all_columns %}
-                            <option value="{{ col }}" {% if fields and col in fields.split(',') %}selected{% endif %}>{{ col }}</option>
+                            {% if not (table_name == 'customer_redemption_details' and col in REMOVED_FIELDS) %}
+                                <option value="{{ col }}" {% if fields and col in fields.split(',') %}selected{% endif %}>{{ col }}</option>
+                            {% endif %}
                         {% endfor %}
                     </select>
                 </div>
@@ -707,7 +728,9 @@ def query_data():
                     <label>排序字段：</label>
                     <select id="sortFieldsSelect" multiple>
                         {% for col in all_columns %}
-                            <option value="{{ col }}" {% if sort_field and col in sort_field.split(',') %}selected{% endif %}>{{ col }}</option>
+                            {% if not (table_name == 'customer_redemption_details' and col in REMOVED_FIELDS) %}
+                                <option value="{{ col }}" {% if sort_field and col in sort_field.split(',') %}selected{% endif %}>{{ col }}</option>
+                            {% endif %}
                         {% endfor %}
                     </select>
                     <label style="margin-left:10px;">排序方向：</label>
@@ -757,14 +780,16 @@ def query_data():
                             <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
                             <th style="width:60px;">序号</th>
                             {% for column in show_columns %}
-                                <th onclick="sortTable('{{ column.Field }}')" {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col"{% endif %}>
-                                    {{ column.Field }}
-                                    {% if sort_field and column.Field in sort_field.split(',') %}
-                                        <span class="sort-indicator">
-                                            {% if sort_order and column.Field in sort_order.split(',') and sort_order.split(',')[sort_field.split(',').index(column.Field)].upper() == 'ASC' %}↑{% else %}↓{% endif %}
-                                        </span>
-                                    {% endif %}
-                                </th>
+                                {% if not (table_name == 'customer_redemption_details' and column.Field in REMOVED_FIELDS) %}
+                                    <th onclick="sortTable('{{ column.Field }}')" {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col"{% endif %}>
+                                        {{ column.Field }}
+                                        {% if sort_field and column.Field in sort_field.split(',') %}
+                                            <span class="sort-indicator">
+                                                {% if sort_order and column.Field in sort_order.split(',') and sort_order.split(',')[sort_field.split(',').index(column.Field)].upper() == 'ASC' %}↑{% else %}↓{% endif %}
+                                            </span>
+                                        {% endif %}
+                                    </th>
+                                {% endif %}
                             {% endfor %}
                             <th>操作</th>
                         </tr>
@@ -775,7 +800,9 @@ def query_data():
                                 <td><input type="checkbox" data-id="{{ row.id }}"></td>
                                 <td>{{ (result.current_page-1)*result.per_page + loop.index }}</td>
                                 {% for column in show_columns %}
-                                    <td {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col" title="{{ row[column.Field] }}"{% endif %}>{{ row[column.Field] or '' }}</td>
+                                    {% if not (table_name == 'customer_redemption_details' and column.Field in REMOVED_FIELDS) %}
+                                        <td {% if table_name == 'customer_redemption_details' and column.Field == '活动对象' %}class="ellipsis-col" title="{{ row[column.Field] }}"{% endif %}>{{ row[column.Field] or '' }}</td>
+                                    {% endif %}
                                 {% endfor %}
                                 <td>
                                     <button class="button" style="background: linear-gradient(90deg, #4f8cff 0%, #6ed0ff 100%); color: #fff; padding: 5px 10px; border-radius: 15px; cursor: pointer; font-size: 14px; " onclick="openEditDialog({{ loop.index0 }})">编辑</button>
