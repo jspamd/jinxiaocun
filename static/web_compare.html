@@ -6,6 +6,7 @@
     <title>数据比对原型工具</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         /* 自定义滚动条样式 */
         ::-webkit-scrollbar {
@@ -238,10 +239,11 @@
             <div class="bg-gray-50 p-4 rounded-lg shadow-sm overflow-x-auto border border-gray-200">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xl font-semibold text-gray-700">比对结果</h2>
-                    <button onclick="exportComparisonResults()" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 ml-2">导出</button>
+                    <button onclick="exportComparisonResultsExcel()" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 ml-2">导出</button>
+                    <button onclick="exportComparisonResultsHTML()" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 ml-2">导出</button>
                 </div>
                 <div id="comparisonResults" class="w-full text-sm">
-                    <p class="text-gray-500 text-center py-4">点击“应用关联”按钮查看结果。</p>
+                    <p class="text-gray-500 text-center py-4">点击"应用关联"按钮查看结果。</p>
                 </div>
             </div>
 
@@ -249,7 +251,7 @@
             <div class="bg-gray-50 p-4 rounded-lg shadow-sm overflow-x-auto border border-gray-200">
                 <h2 class="text-xl font-semibold text-gray-700 mb-3">输出结果</h2>
                 <div id="showOutputResults" class="w-full text-sm">
-                    <p class="text-gray-500 text-center py-4">点击“输出结果”按钮查看结果。</p>
+                    <p class="text-gray-500 text-center py-4">点击"输出结果"按钮查看结果。</p>
                 </div>
             </div>
         </div>
@@ -289,10 +291,10 @@
                         outputAllData.fields.push('赠品金额');
                     }
                     outputAllData.rows.forEach(row => {
-                        // 假设字段名为“销售数量”和“活动政策”
+                        // 假设字段名为"销售数量"和"活动政策"
                         const num = parseInt(row['销售数量'] || row['数量'] || 0, 10);
                         let amount = 0;
-                        // 匹配“购X盒，返Y元”
+                        // 匹配"购X盒，返Y元"
                         const match = (row['活动政策'] || '').match(/购(\d+)盒.*?返(\d+)元/);
                         if (match) {
                             const base = parseInt(match[1], 10);
@@ -648,7 +650,7 @@
             'output_results': '输出结果'
         };
 
-        // 修改比对结果渲染函数，表头上方加“左表（表名）”“右表（表名）”
+        // 修改比对结果渲染函数，表头上方加"左表（表名）""右表（表名）"
         function renderCompareTable(rows, container) {
             window.compareRowsCache = rows || []; // 这句必须放最前面，保证全局变量同步
              // 关键：同步全局字段变量
@@ -722,7 +724,7 @@
             const keyAFields = currentKeyAFields;
             const keyBFields = currentKeyBFields;
             if (keyAFields.length === 0 || keyBFields.length === 0) {
-                comparisonResults.innerHTML = '<p class="text-red-500 text-center py-4">请拖动字段到“已选关联字段”区域以指定关联字段！</p>';
+                comparisonResults.innerHTML = '<p class="text-red-500 text-center py-4">请拖动字段到"已选关联字段"区域以指定关联字段！</p>';
                 return;
             }
             if (keyAFields.length !== keyBFields.length) {
@@ -886,7 +888,7 @@
             updateFieldDisplays();
             if (tableAPreview) tableAPreview.innerHTML = '<p class="text-gray-500 text-center py-2">无数据可预览。</p>';
             if (tableBPreview) tableBPreview.innerHTML = '<p class="text-gray-500 text-center py-2">无数据可预览。</p>';
-            if (comparisonResults) comparisonResults.innerHTML = '<p class="text-gray-500 text-center py-4">点击“应用关联”按钮查看结果。</p>';
+            if (comparisonResults) comparisonResults.innerHTML = '<p class="text-gray-500 text-center py-4">点击"应用关联"按钮查看结果。</p>';
             if (savedComparisonsSelect) savedComparisonsSelect.value = "";
         }
 
@@ -1100,7 +1102,7 @@
             });
         }
 
-        // 让“已选关联字段”容器支持空白区域拖入
+        // 让"已选关联字段"容器支持空白区域拖入
         function enableDropToSelected(containerId, type) {
             const container = document.getElementById(containerId);
             if (!container) return;
@@ -1284,6 +1286,134 @@
             URL.revokeObjectURL(url);
         }
 
+        function exportComparisonResultsExcel() {
+            if (!window.compareRowsCache || !Array.isArray(window.compareRowsCache) || window.compareRowsCache.length === 0) {
+                showGlobalMessage('暂无对比结果！');
+                return;
+            }
+            // 获取表名和字段
+            const tableNameMap = {
+                'customer_redemption_details': '客户原始兑付明细',
+                'customer_flow': '客户流向',
+                'activity_plan': '活动方案',
+                'output_results': '输出结果'
+            };
+            const leftTableKey = document.getElementById('leftTableSelect')?.value || '';
+            const rightTableKey = document.getElementById('rightTableSelect')?.value || '';
+            const leftTableName = tableNameMap[leftTableKey] || leftTableKey;
+            const rightTableName = tableNameMap[rightTableKey] || rightTableKey;
+            const leftFields = window.currentKeyAFields || [];
+            const rightFields = (window.currentKeyBFields || []).filter(f => !leftFields.includes(f));
+            const showFields = [...leftFields, ...rightFields];
+            if (showFields.length === 0) {
+                showGlobalMessage('无可导出的字段！');
+                return;
+            }
+            const showFieldNames = [
+                ...leftFields.map(f => `左表（${leftTableName}）-${f}`),
+                ...rightFields.map(f => `右表（${rightTableName}）-${f}`)
+            ];
+
+            // 构造数据
+            const ws_data = [showFieldNames];
+            window.compareRowsCache.forEach(row => {
+                ws_data.push(showFields.map(f => row.data && row.data[f] !== undefined ? row.data[f] : ''));
+            });
+
+            // 创建工作表
+            const ws = XLSX.utils.aoa_to_sheet(ws_data);
+
+            // 设置表头颜色
+            showFieldNames.forEach((_, idx) => {
+                const cell = ws[XLSX.utils.encode_cell({c: idx, r: 0})];
+                if (cell && !cell.s) cell.s = {};
+                if (cell) cell.s.fill = { patternType: "solid", fgColor: { rgb: "E2E8F0" } }; // 浅灰
+                if (cell) cell.s.font = { bold: true };
+            });
+
+            // 设置行颜色
+            window.compareRowsCache.forEach((row, i) => {
+                let bg = null;
+                if (row.type === 'matched') bg = 'D4EDDA';      // 浅绿
+                if (row.type === 'left_only') bg = 'F8D7DA';    // 浅红
+                if (row.type === 'right_only') bg = 'D1ECF1';   // 浅蓝
+                if (bg) {
+                    showFields.forEach((_, idx) => {
+                        const cell = ws[XLSX.utils.encode_cell({c: idx, r: i+1})];
+                        if (cell && !cell.s) cell.s = {};
+                        if (cell) cell.s.fill = { patternType: "solid", fgColor: { rgb: bg } };
+                    });
+                }
+            });
+
+            // 导出
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "比对结果");
+            XLSX.writeFile(wb, "comparison_results.xlsx");
+        }
+
+        function exportComparisonResultsHTML() {
+            if (!window.compareRowsCache || !Array.isArray(window.compareRowsCache) || window.compareRowsCache.length === 0) {
+                showGlobalMessage('暂无对比结果！');
+                return;
+            }
+            // 获取表名和字段
+            const tableNameMap = {
+                'customer_redemption_details': '客户原始兑付明细',
+                'customer_flow': '客户流向',
+                'activity_plan': '活动方案',
+                'output_results': '输出结果'
+            };
+            const leftTableKey = document.getElementById('leftTableSelect')?.value || '';
+            const rightTableKey = document.getElementById('rightTableSelect')?.value || '';
+            const leftTableName = tableNameMap[leftTableKey] || leftTableKey;
+            const rightTableName = tableNameMap[rightTableKey] || rightTableKey;
+            const leftFields = window.currentKeyAFields || [];
+            const rightFields = (window.currentKeyBFields || []).filter(f => !leftFields.includes(f));
+            const showFields = [...leftFields, ...rightFields];
+            if (showFields.length === 0) {
+                showGlobalMessage('无可导出的字段！');
+                return;
+            }
+            const showFieldNames = [
+                ...leftFields.map(f => `左表（${leftTableName}）-${f}`),
+                ...rightFields.map(f => `右表（${rightTableName}）-${f}`)
+            ];
+
+            // 构造HTML
+            let html = `<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;font-size:14px;">`;
+            // 表头
+            html += `<tr style="background:#e2e8f0;font-weight:bold;">`;
+            showFieldNames.forEach(name => {
+                html += `<th>${name}</th>`;
+            });
+            html += `</tr>`;
+            // 数据
+            window.compareRowsCache.forEach(row => {
+                let bg = '';
+                if (row.type === 'matched') bg = 'background:#d4edda;';      // 浅绿
+                if (row.type === 'left_only') bg = 'background:#f8d7da;';    // 浅红
+                if (row.type === 'right_only') bg = 'background:#d1ecf1;';   // 浅蓝
+                html += `<tr style="${bg}">`;
+                showFields.forEach(f => {
+                    let val = row.data && row.data[f] !== undefined ? row.data[f] : '';
+                    html += `<td>${val}</td>`;
+                });
+                html += `</tr>`;
+            });
+            html += `</table>`;
+
+            // 下载
+            const blob = new Blob([`\uFEFF${html}`], {type: 'application/vnd.ms-excel'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'comparison_results.xls';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
 
         // Page load initialization
         document.addEventListener('DOMContentLoaded', async () => {
