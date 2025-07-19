@@ -652,10 +652,7 @@
 
         // 修改比对结果渲染函数，表头上方加"左表（表名）""右表（表名）"
         function renderCompareTable(rows, container) {
-            window.compareRowsCache = rows || []; // 这句必须放最前面，保证全局变量同步
-             // 关键：同步全局字段变量
-            window.currentKeyAFields = currentKeyAFields;
-            window.currentKeyBFields = currentKeyBFields;
+            window.compareRowsCache = rows || [];
             if (!container) {
                 console.error("Comparison results container not found!");
                 return;
@@ -665,53 +662,29 @@
                 container.innerHTML = '<p class="text-gray-500 text-center py-4">无比对结果。</p>';
                 return;
             }
-            // 只显示关联字段
-            const leftFields = currentKeyAFields;
-            const rightFields = currentKeyBFields.filter(f => !leftFields.includes(f));
-            const showFields = [...leftFields, ...rightFields];
-            const splitIndex = leftFields.length - 1; // 左表最后一个字段索引
-            // 获取表名
-            const leftTableKey = document.getElementById('leftTableSelect')?.value || '';
-            const rightTableKey = document.getElementById('rightTableSelect')?.value || '';
-            const leftTableName = tableNameMap[leftTableKey] || leftTableKey;
-            const rightTableName = tableNameMap[rightTableKey] || rightTableKey;
-            // 分页
-            const total = rows.length;
-            renderComparePagination(container, total, comparePage, comparePerPage, changeComparePage);
+            // 获取后端返回的所有字段
+            const allFields = window.compareFields || Object.keys(rows[0].data || {});
+            // 表头
             let tableHtml = '<table class="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">';
-            // 新增：表头上方加一行
-            tableHtml += '<thead>';
-            tableHtml += '<tr class="bg-header">';
-            if(leftFields.length>0) tableHtml += `<th colspan="${leftFields.length}" class="text-center text-base font-bold border-b border-gray-300" style="border-right:2px solid #888;">左表（${leftTableName}）</th>`;
-            if(rightFields.length>0) tableHtml += `<th colspan="${rightFields.length}" class="text-center text-base font-bold border-b border-gray-300">右表（${rightTableName}）</th>`;
-            tableHtml += '</tr>';
-            // 字段名行
-            tableHtml += '<tr class="bg-header">';
-            showFields.forEach((header, idx) => {
-                let style = '';
-                if (idx === splitIndex) style = 'border-right:2px solid #888;';
-                tableHtml += `<th class="py-2 px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style="${style}">${header}</th>`;
+            tableHtml += '<thead><tr class="bg-header">';
+            allFields.forEach(header => {
+                tableHtml += `<th class="py-2 px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">${header}</th>`;
             });
-            tableHtml += '</tr></thead>';
-            tableHtml += '<tbody>';
-            const startIdx = (comparePage-1)*comparePerPage;
-            const endIdx = Math.min(startIdx+comparePerPage, total);
-            for(let i=startIdx;i<endIdx;i++){
-                const row = rows[i];
+            tableHtml += '</tr></thead><tbody>';
+            // 数据
+            rows.forEach(row => {
                 let rowClass = '';
                 if(row.type==='matched') rowClass='bg-match';
                 else if(row.type==='left_only') rowClass='bg-left-only';
                 else if(row.type==='right_only') rowClass='bg-right-only';
                 tableHtml += `<tr class="hover:bg-gray-50 ${rowClass}">`;
-                showFields.forEach((header, idx) => {
-                    let style = '';
-                    if (idx === splitIndex) style = 'border-right:2px solid #888;';
-                    tableHtml += `<td class="py-2 px-4 border-b border-gray-200" style="${style}">${row.data[header]||''}</td>`;
+                allFields.forEach(header => {
+                    tableHtml += `<td class="py-2 px-4 border-b border-gray-200">${row.data && row.data[header] !== undefined ? row.data[header] : ''}</td>`;
                 });
                 tableHtml += '</tr>';
-            }
+            });
             tableHtml += '</tbody></table>';
-            container.innerHTML += tableHtml;
+            container.innerHTML = tableHtml;
         }
 
         // 修改performComparison，调用renderCompareTable时重置comparePage
@@ -1237,44 +1210,18 @@
                 showGlobalMessage('暂无对比结果！');
                 return;
             }
-            // 获取表名
-            const tableNameMap = {
-                'customer_redemption_details': '客户原始兑付明细',
-                'customer_flow': '客户流向',
-                'activity_plan': '活动方案',
-                'output_results': '输出结果'
-            };
-            const leftTableKey = document.getElementById('leftTableSelect')?.value || '';
-            const rightTableKey = document.getElementById('rightTableSelect')?.value || '';
-            const leftTableName = tableNameMap[leftTableKey] || leftTableKey;
-            const rightTableName = tableNameMap[rightTableKey] || rightTableKey;
-
-            // 字段
-            const leftFields = window.currentKeyAFields || [];
-            const rightFields = (window.currentKeyBFields || []).filter(f => !leftFields.includes(f));
-            const showFields = [...leftFields, ...rightFields];
-            if (showFields.length === 0) {
-                showGlobalMessage('无可导出的字段！');
-                return;
-            }
-            // 带表名的表头
-            const showFieldNames = [
-                ...leftFields.map(f => `左表（${leftTableName}）-${f}`),
-                ...rightFields.map(f => `右表（${rightTableName}）-${f}`)
-            ];
-
-            // 导出全部数据
-            let csv = showFieldNames.join(',') + '\n';
+            // 用页面显示的字段顺序导出（后端返回的fields）
+            const allFields = window.compareFields || Object.keys(window.compareRowsCache[0]?.data || {});
+            let csv = allFields.join(',') + '\n';
             window.compareRowsCache.forEach(row => {
-                csv += showFields.map(f => {
+                csv += allFields.map(f => {
                     let val = row.data && row.data[f] !== undefined ? row.data[f] : '';
-                    if (typeof val === 'string' && (val.includes(',') || val.includes('\"') || val.includes('\n'))) {
-                        val = '\"' + val.replace(/\"/g, '\"\"') + '\"';
+                    if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+                        val = '"' + val.replace(/"/g, '""') + '"';
                     }
                     return val;
                 }).join(',') + '\n';
             });
-            // 下载
             const blob = new Blob([csv], {type: 'text/csv'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -1291,62 +1238,32 @@
                 showGlobalMessage('暂无对比结果！');
                 return;
             }
-            // 获取表名和字段
-            const tableNameMap = {
-                'customer_redemption_details': '客户原始兑付明细',
-                'customer_flow': '客户流向',
-                'activity_plan': '活动方案',
-                'output_results': '输出结果'
-            };
-            const leftTableKey = document.getElementById('leftTableSelect')?.value || '';
-            const rightTableKey = document.getElementById('rightTableSelect')?.value || '';
-            const leftTableName = tableNameMap[leftTableKey] || leftTableKey;
-            const rightTableName = tableNameMap[rightTableKey] || rightTableKey;
-            const leftFields = window.currentKeyAFields || [];
-            const rightFields = (window.currentKeyBFields || []).filter(f => !leftFields.includes(f));
-            const showFields = [...leftFields, ...rightFields];
-            if (showFields.length === 0) {
-                showGlobalMessage('无可导出的字段！');
-                return;
-            }
-            const showFieldNames = [
-                ...leftFields.map(f => `左表（${leftTableName}）-${f}`),
-                ...rightFields.map(f => `右表（${rightTableName}）-${f}`)
-            ];
-
-            // 构造数据
-            const ws_data = [showFieldNames];
+            // 用页面显示的字段顺序导出（后端返回的fields）
+            const allFields = window.compareFields || Object.keys(window.compareRowsCache[0]?.data || {});
+            const ws_data = [allFields];
             window.compareRowsCache.forEach(row => {
-                ws_data.push(showFields.map(f => row.data && row.data[f] !== undefined ? row.data[f] : ''));
+                ws_data.push(allFields.map(f => row.data && row.data[f] !== undefined ? row.data[f] : ''));
             });
-
-            // 创建工作表
             const ws = XLSX.utils.aoa_to_sheet(ws_data);
-
-            // 设置表头颜色
-            showFieldNames.forEach((_, idx) => {
+            allFields.forEach((_, idx) => {
                 const cell = ws[XLSX.utils.encode_cell({c: idx, r: 0})];
                 if (cell && !cell.s) cell.s = {};
-                if (cell) cell.s.fill = { patternType: "solid", fgColor: { rgb: "E2E8F0" } }; // 浅灰
+                if (cell) cell.s.fill = { patternType: "solid", fgColor: { rgb: "E2E8F0" } };
                 if (cell) cell.s.font = { bold: true };
             });
-
-            // 设置行颜色
             window.compareRowsCache.forEach((row, i) => {
                 let bg = null;
-                if (row.type === 'matched') bg = 'D4EDDA';      // 浅绿
-                if (row.type === 'left_only') bg = 'F8D7DA';    // 浅红
-                if (row.type === 'right_only') bg = 'D1ECF1';   // 浅蓝
+                if (row.type === 'matched') bg = 'D4EDDA';
+                if (row.type === 'left_only') bg = 'F8D7DA';
+                if (row.type === 'right_only') bg = 'D1ECF1';
                 if (bg) {
-                    showFields.forEach((_, idx) => {
+                    allFields.forEach((_, idx) => {
                         const cell = ws[XLSX.utils.encode_cell({c: idx, r: i+1})];
                         if (cell && !cell.s) cell.s = {};
                         if (cell) cell.s.fill = { patternType: "solid", fgColor: { rgb: bg } };
                     });
                 }
             });
-
-            // 导出
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "比对结果");
             XLSX.writeFile(wb, "comparison_results.xlsx");
@@ -1357,53 +1274,27 @@
                 showGlobalMessage('暂无对比结果！');
                 return;
             }
-            // 获取表名和字段
-            const tableNameMap = {
-                'customer_redemption_details': '客户原始兑付明细',
-                'customer_flow': '客户流向',
-                'activity_plan': '活动方案',
-                'output_results': '输出结果'
-            };
-            const leftTableKey = document.getElementById('leftTableSelect')?.value || '';
-            const rightTableKey = document.getElementById('rightTableSelect')?.value || '';
-            const leftTableName = tableNameMap[leftTableKey] || leftTableKey;
-            const rightTableName = tableNameMap[rightTableKey] || rightTableKey;
-            const leftFields = window.currentKeyAFields || [];
-            const rightFields = (window.currentKeyBFields || []).filter(f => !leftFields.includes(f));
-            const showFields = [...leftFields, ...rightFields];
-            if (showFields.length === 0) {
-                showGlobalMessage('无可导出的字段！');
-                return;
-            }
-            const showFieldNames = [
-                ...leftFields.map(f => `左表（${leftTableName}）-${f}`),
-                ...rightFields.map(f => `右表（${rightTableName}）-${f}`)
-            ];
-
-            // 构造HTML
+            // 用页面显示的字段顺序导出（后端返回的fields）
+            const allFields = window.compareFields || Object.keys(window.compareRowsCache[0]?.data || {});
             let html = `<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;font-size:14px;">`;
-            // 表头
             html += `<tr style="background:#e2e8f0;font-weight:bold;">`;
-            showFieldNames.forEach(name => {
+            allFields.forEach(name => {
                 html += `<th>${name}</th>`;
             });
             html += `</tr>`;
-            // 数据
             window.compareRowsCache.forEach(row => {
                 let bg = '';
-                if (row.type === 'matched') bg = 'background:#d4edda;';      // 浅绿
-                if (row.type === 'left_only') bg = 'background:#f8d7da;';    // 浅红
-                if (row.type === 'right_only') bg = 'background:#d1ecf1;';   // 浅蓝
+                if (row.type === 'matched') bg = 'background:#d4edda;';
+                if (row.type === 'left_only') bg = 'background:#f8d7da;';
+                if (row.type === 'right_only') bg = 'background:#d1ecf1;';
                 html += `<tr style="${bg}">`;
-                showFields.forEach(f => {
+                allFields.forEach(f => {
                     let val = row.data && row.data[f] !== undefined ? row.data[f] : '';
                     html += `<td>${val}</td>`;
                 });
                 html += `</tr>`;
             });
             html += `</table>`;
-
-            // 下载
             const blob = new Blob([`\uFEFF${html}`], {type: 'application/vnd.ms-excel'});
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');

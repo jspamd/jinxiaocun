@@ -441,6 +441,9 @@ def query_data():
     if table_name == 'customer_redemption_details':
         result_columns = [col for col in result_columns if col['Field'] not in REMOVED_FIELDS]
         result['columns'] = result_columns
+    else:
+        result_columns = result['columns']
+        result['columns'] = result_columns
     
     return render_template_string(r'''
 <!DOCTYPE html>
@@ -1463,17 +1466,22 @@ def api_output_results():
     try:
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
-        # 读取仲景宛西-客户流向表
+        # 读取客户流向表
+        cursor.execute("DESCRIBE customer_flow")
+        flow_fields = [row[0] for row in cursor.fetchall()]
         cursor.execute("SELECT * FROM customer_flow")
         flow_rows = cursor.fetchall()
         # 读取活动方案表
+        cursor.execute("DESCRIBE activity_plan")
+        plan_fields = [row[0] for row in cursor.fetchall()]
         cursor.execute("SELECT * FROM activity_plan")
         plan_rows = cursor.fetchall()
         plan_map = {row['产品名称']: row for row in plan_rows}
         # 生成输出结果
         result_rows = []
+        all_fields_set = set()
         for row in flow_rows:
-            new_row = row.copy()
+            new_row = {k: row.get(k, '') for k in flow_fields}  # 先补全客户流向表字段
             # 活动政策
             plan = plan_map.get(row.get('物料名称'))
             policy = plan['活动政策'] if plan else ''
@@ -1488,13 +1496,23 @@ def api_output_results():
                         return base_amt * (int(qty) // base_qty)
                 return 0
             new_row['赠品金额'] = parse_policy(policy, row.get('销售数量', 0))
-            # 字段补充
+            # 补全plan表字段
+            if plan:
+                for k in plan_fields:
+                    if k not in new_row:
+                        new_row[k] = plan.get(k, '')
+            else:
+                for k in plan_fields:
+                    if k not in new_row:
+                        new_row[k] = ''
+            # 其它补充字段
             for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织', '客户分线', '供货价', '流出方组织', '物料编码', '进货日期', '规格型号', '批次', '出库单价', '批号']:
                 if col not in new_row:
                     new_row[col] = ''
             result_rows.append(new_row)
+            all_fields_set.update(new_row.keys())
         # 获取所有字段名，保证表头完整
-        all_fields = list(result_rows[0].keys()) if result_rows else []
+        all_fields = list(all_fields_set)
         cursor.close()
         conn.close()
         return jsonify({"fields": all_fields, "rows": result_rows})
@@ -1537,16 +1555,24 @@ def api_get_table_data():
             database=dbconf.get('database', '')
         )
         cursor = conn.cursor()
+        # 获取所有字段
+        cursor.execute(f"DESCRIBE `{table}`")
+        all_fields = [desc[0] for desc in cursor.fetchall()]
+        # 查询所有数据
         sql = f"SELECT * FROM `{table}`"
         print(f"[DEBUG] 执行SQL: {sql}")
         cursor.execute(sql)
-        columns = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
         import io, csv
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(columns)
-        writer.writerows(rows)
+        writer.writerow(all_fields)
+        for row in rows:
+            row_dict = dict(zip(columns, row))
+            # 补全缺失字段
+            full_row = [row_dict.get(col, '') for col in all_fields]
+            writer.writerow(full_row)
         cursor.close()
         conn.close()
         return jsonify({'csv_string': output.getvalue()})
