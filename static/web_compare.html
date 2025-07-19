@@ -280,6 +280,26 @@
                     outputFilteredData = data.rows;
                     outputPage = 1;
                     
+                    // 自动计算赠品金额
+                    if (!outputAllData.fields.includes('赠品金额')) {
+                        outputAllData.fields.push('赠品金额');
+                    }
+                    outputAllData.rows.forEach(row => {
+                        // 假设字段名为“销售数量”和“活动政策”
+                        const num = parseInt(row['销售数量'] || row['数量'] || 0, 10);
+                        let amount = 0;
+                        // 匹配“购X盒，返Y元”
+                        const match = (row['活动政策'] || '').match(/购(\d+)盒.*?返(\d+)元/);
+                        if (match) {
+                            const base = parseInt(match[1], 10);
+                            const reward = parseFloat(match[2]);
+                            if (base > 0) {
+                                amount = Math.floor(num / base) * reward;
+                            }
+                        }
+                        row['赠品金额'] = amount;
+                    });
+
                     // 渲染输出结果界面
                     renderOutputResults();
                 } catch (e) {
