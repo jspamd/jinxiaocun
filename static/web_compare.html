@@ -211,6 +211,9 @@
                 <button id="applyAssociationBtn" class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 text-lg">
                     应用关联
                 </button>
+                <button id="showOutputResultsBtn" class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 text-lg">
+                    输出结果
+                </button>
             </div>
         </div>
 
@@ -237,32 +240,175 @@
                     <p class="text-gray-500 text-center py-4">点击“应用关联”按钮查看结果。</p>
                 </div>
             </div>
+
+            <!--  输出结果展示区域 -->
+            <div class="bg-gray-50 p-4 rounded-lg shadow-sm overflow-x-auto border border-gray-200">
+                <h2 class="text-xl font-semibold text-gray-700 mb-3">输出结果</h2>
+                <div id="showOutputResults" class="w-full text-sm">
+                    <p class="text-gray-500 text-center py-4">点击“输出结果”按钮查看结果。</p>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script>
-        // Predefined tables data (used for simulation)
-        // const predefinedTables = {
-        //     "员工表": {
-        //         csv: "ID,Name,Age,City,Position,Salary\n1001,张三,30,北京,经理,15000\n1002,李四,24,上海,开发,12000\n1003,王五,35,广州,测试,10000\n1004,赵六,28,深圳,销售,9000\n1005,钱七,40,北京,总监,25000\n1006,孙八,32,上海,工程师,13000",
-        //         defaultKeys: ["ID"]
-        //     },
-        //     "部门表": {
-        //         csv: "DeptID,DeptName,ManagerID,Location\n1,技术部,1001,北京\n2,开发部,1003,上海\n3,设计部,1004,广州\n4,市场部,1005,深圳\n5,财务部,1006,北京",
-        //         defaultKeys: ["DeptID"]
-        //     },
-        //     "项目表": {
-        //         csv: "ProjectID,ProjectName,DeptID,StartDate\nP001,新产品开发,1,2023-01-01\nP002,市场推广,4,2023-03-15\nP003,系统升级,2,2023-05-01\nP004,数据分析,1,2023-06-20",
-        //         defaultKeys: ["ProjectID", "DeptID"]
-        //     }
-        // };
+            <script>
+            // Global variables for parsed data and selected keys
+            let dataA = [];
+            let dataB = [];
+            let allHeaders = [];
+            let currentKeyAFields = [];
+            let currentKeyBFields = [];
 
-        // Global variables for parsed data and selected keys
-        let dataA = [];
-        let dataB = [];
-        let allHeaders = [];
-        let currentKeyAFields = [];
-        let currentKeyBFields = [];
+            // 输出结果分页相关变量
+            let outputPage = 1;
+            let outputPerPage = 50;
+            let outputTotalPages = 1;
+            let outputAllData = { fields: [], rows: [] };
+            let outputFilteredData = [];
+
+            // 加载输出结果数据
+            async function loadOutputResults() {
+                const tableDiv = document.getElementById('showOutputResults');
+                tableDiv.innerHTML = '<div class="text-blue-500 text-center py-4">正在加载...</div>';
+                try {
+                    const resp = await fetch('/api/output_results');
+                    const data = await resp.json();
+                    if (!data.fields || !data.rows) throw new Error('数据格式错误');
+                    
+                    // 保存所有数据
+                    outputAllData = data;
+                    outputFilteredData = data.rows;
+                    outputPage = 1;
+                    
+                    // 渲染输出结果界面
+                    renderOutputResults();
+                } catch (e) {
+                    tableDiv.innerHTML = `<div class="text-red-500 text-center py-4">加载失败：${e.message}</div>`;
+                }
+            }
+
+            // 渲染输出结果界面（包含查询条件和分页）
+            function renderOutputResults() {
+                const tableDiv = document.getElementById('showOutputResults');
+                
+                // 构建查询条件区域
+                let html = '<div class="mb-4">';
+                html += '<div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">';
+                html += '<h3 class="text-lg font-semibold text-gray-700 mb-3">查询条件</h3>';
+                html += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">';
+                
+                // 为每个字段创建查询输入框
+                outputAllData.fields.forEach((field, index) => {
+                    html += `<div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">${field}</label>
+                        <input type="text" id="filter_${index}" placeholder="输入${field}查询条件" 
+                               class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>`;
+                });
+                
+                html += '</div>';
+                html += '<div class="flex justify-between items-center">';
+                html += '<button onclick="applyOutputFilters()" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">查询</button>';
+                html += '<button onclick="clearOutputFilters()" class="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-200">清空条件</button>';
+                html += '</div>';
+                html += '</div>';
+                
+                // 构建分页控件
+                const total = outputFilteredData.length;
+                outputTotalPages = Math.max(1, Math.ceil(total / outputPerPage));
+                
+                html += '<div class="flex justify-between items-center mb-4">';
+                html += `<div class="text-sm text-gray-600">共 ${total} 条记录，第 ${outputPage} / ${outputTotalPages} 页</div>`;
+                html += '<div class="flex items-center gap-2">';
+                html += `<button class="px-3 py-1 border rounded ${outputPage<=1?'bg-gray-200 text-gray-400':'bg-white hover:bg-gray-50'}" ${outputPage<=1?'disabled':''} onclick="changeOutputPage(1)">首页</button>`;
+                html += `<button class="px-3 py-1 border rounded ${outputPage<=1?'bg-gray-200 text-gray-400':'bg-white hover:bg-gray-50'}" ${outputPage<=1?'disabled':''} onclick="changeOutputPage(${outputPage-1})">上一页</button>`;
+                html += `<span class="px-3 py-1">${outputPage} / ${outputTotalPages}</span>`;
+                html += `<button class="px-3 py-1 border rounded ${outputPage>=outputTotalPages?'bg-gray-200 text-gray-400':'bg-white hover:bg-gray-50'}" ${outputPage>=outputTotalPages?'disabled':''} onclick="changeOutputPage(${outputPage+1})">下一页</button>`;
+                html += `<button class="px-3 py-1 border rounded ${outputPage>=outputTotalPages?'bg-gray-200 text-gray-400':'bg-white hover:bg-gray-50'}" ${outputPage>=outputTotalPages?'disabled':''} onclick="changeOutputPage(${outputTotalPages})">末页</button>`;
+                html += `<select id="outputPerPageSelect" class="ml-2 border rounded px-2 py-1" onchange="changeOutputPerPage()">
+                            <option value="20" ${outputPerPage==20?'selected':''}>20/页</option>
+                            <option value="50" ${outputPerPage==50?'selected':''}>50/页</option>
+                            <option value="100" ${outputPerPage==100?'selected':''}>100/页</option>
+                            <option value="200" ${outputPerPage==200?'selected':''}>200/页</option>
+                        </select>`;
+                html += '</div>';
+                html += '</div>';
+                
+                // 构建数据表格
+                html += '<div class="overflow-x-auto">';
+                html += '<table class="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">';
+                html += '<thead><tr class="bg-blue-50">';
+                outputAllData.fields.forEach(field => {
+                    html += `<th class="px-3 py-2 border-b text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">${field}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+                
+                // 计算当前页的数据
+                const startIdx = (outputPage - 1) * outputPerPage;
+                const endIdx = Math.min(startIdx + outputPerPage, outputFilteredData.length);
+                const currentPageData = outputFilteredData.slice(startIdx, endIdx);
+                
+                currentPageData.forEach(row => {
+                    html += '<tr class="hover:bg-gray-50">';
+                    outputAllData.fields.forEach(field => {
+                        html += `<td class="px-3 py-2 border-b text-sm">${row[field] ?? ''}</td>`;
+                    });
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table>';
+                html += '</div>';
+                
+                tableDiv.innerHTML = html;
+            }
+
+            // 应用查询条件
+            function applyOutputFilters() {
+                const filters = {};
+                outputAllData.fields.forEach((field, index) => {
+                    const value = document.getElementById(`filter_${index}`).value.trim();
+                    if (value) {
+                        filters[field] = value.toLowerCase();
+                    }
+                });
+                
+                // 过滤数据
+                outputFilteredData = outputAllData.rows.filter(row => {
+                    return Object.keys(filters).every(field => {
+                        const cellValue = (row[field] || '').toString().toLowerCase();
+                        return cellValue.includes(filters[field]);
+                    });
+                });
+                
+                outputPage = 1; // 重置到第一页
+                renderOutputResults();
+            }
+
+            // 清空查询条件
+            function clearOutputFilters() {
+                outputAllData.fields.forEach((field, index) => {
+                    const input = document.getElementById(`filter_${index}`);
+                    if (input) input.value = '';
+                });
+                
+                outputFilteredData = outputAllData.rows;
+                outputPage = 1;
+                renderOutputResults();
+            }
+
+            // 切换输出结果页面
+            function changeOutputPage(page) {
+                outputPage = Math.max(1, Math.min(page, outputTotalPages));
+                renderOutputResults();
+            }
+
+            // 切换输出结果每页显示数量
+            function changeOutputPerPage() {
+                const sel = document.getElementById('outputPerPageSelect');
+                outputPerPage = parseInt(sel.value);
+                outputPage = 1;
+                renderOutputResults();
+            }
 
         // ========== 新增：全局数据库配置缓存 ==========
         let currentDbConfig = null;
@@ -1029,6 +1175,7 @@
             const leftTableSelect = document.getElementById('leftTableSelect');
             const rightTableSelect = document.getElementById('rightTableSelect');
             const connectDbBtn = document.getElementById('connectDbBtn'); // New button
+            const showOutputResultsBtn = document.getElementById("showOutputResultsBtn");
 
             console.log("applyAssociationBtn:", applyAssociationBtn);
             console.log("newComparisonBtn:", newComparisonBtn);
@@ -1038,6 +1185,7 @@
             console.log("leftTableSelect:", leftTableSelect);
             console.log("rightTableSelect:", rightTableSelect);
             console.log("connectDbBtn:", connectDbBtn);
+            console.log("showOutputResultsBtn:", showOutputResultsBtn);
 
 
             // Attach all event listeners
@@ -1077,6 +1225,84 @@
                     e.preventDefault(); // 阻止默认行为，防止刷新
                     connectToDatabase();
                 });
+            }
+
+            document.getElementById('showOutputResultsBtn').onclick = async function() {
+                // 隐藏原始数据预览区域和比对结果区域
+                const previewSection = document.querySelector('.flex.flex-col.lg\\:flex-row.gap-6.mb-8');
+                const comparisonSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200');
+                
+                if (previewSection) {
+                    previewSection.style.display = 'none';
+                }
+                if (comparisonSection) {
+                    comparisonSection.style.display = 'none';
+                }
+
+                // 显示输出结果展示区域
+                const outputSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200:last-child');
+                if (outputSection) {
+                    outputSection.style.display = 'block';
+                }
+
+                // 修改按钮文本为"返回数据视图"
+                const btn = document.getElementById('showOutputResultsBtn');
+                btn.textContent = '返回数据视图';
+                btn.onclick = showDataView; // 切换回数据视图
+
+                // 加载数据
+                await loadOutputResults();
+            };
+
+            // 添加返回数据视图的函数
+            function showDataView() {
+                // 显示原始数据预览区域和比对结果区域
+                const previewSection = document.querySelector('.flex.flex-col.lg\\:flex-row.gap-6.mb-8');
+                const comparisonSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200');
+                
+                if (previewSection) {
+                    previewSection.style.display = 'flex';
+                }
+                if (comparisonSection) {
+                    comparisonSection.style.display = 'block';
+                }
+
+                // 隐藏输出结果展示区域
+                const outputSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200:last-child');
+                if (outputSection) {
+                    outputSection.style.display = 'none';
+                }
+
+                // 恢复按钮文本和功能
+                const btn = document.getElementById('showOutputResultsBtn');
+                btn.textContent = '输出结果';
+                // 重新绑定原始的输出结果事件
+                btn.onclick = async function() {
+                    // 隐藏原始数据预览区域和比对结果区域
+                    const previewSection = document.querySelector('.flex.flex-col.lg\\:flex-row.gap-6.mb-8');
+                    const comparisonSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200');
+                    
+                    if (previewSection) {
+                        previewSection.style.display = 'none';
+                    }
+                    if (comparisonSection) {
+                        comparisonSection.style.display = 'none';
+                    }
+
+                    // 显示输出结果展示区域
+                    const outputSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200:last-child');
+                    if (outputSection) {
+                        outputSection.style.display = 'block';
+                    }
+
+                    // 修改按钮文本为"返回数据视图"
+                    const btn = document.getElementById('showOutputResultsBtn');
+                    btn.textContent = '返回数据视图';
+                    btn.onclick = showDataView; // 切换回数据视图
+
+                    // 加载数据
+                    await loadOutputResults();
+                };
             }
 
 

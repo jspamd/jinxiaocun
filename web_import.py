@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from flask import Flask, request, render_template_string, jsonify, send_file
 from werkzeug.utils import secure_filename
@@ -1429,6 +1430,50 @@ def export_excel():
         return send_file(output, as_attachment=True)
     except Exception as e:
         return jsonify({'success': False, 'msg': str(e)}), 500
+
+@app.route('/api/output_results')
+def api_output_results():
+    try:
+        conn = create_connection()
+        cursor = conn.cursor(dictionary=True)
+        # 读取客户流向表
+        cursor.execute("SELECT * FROM customer_flow")
+        flow_rows = cursor.fetchall()
+        # 读取活动方案表
+        cursor.execute("SELECT * FROM activity_plan")
+        plan_rows = cursor.fetchall()
+        plan_map = {row['产品名称']: row for row in plan_rows}
+        # 生成输出结果
+        result_rows = []
+        for row in flow_rows:
+            new_row = row.copy()
+            # 活动政策
+            plan = plan_map.get(row.get('物料名称'))
+            policy = plan['活动政策'] if plan else ''
+            new_row['活动政策'] = policy
+            # 赠品金额
+            def parse_policy(policy, qty):
+                m = re.search(r'购(\d+)盒.*?返(\d+)元', policy)
+                if m:
+                    base_qty = int(m.group(1))
+                    base_amt = int(m.group(2))
+                    if base_qty > 0:
+                        return base_amt * (int(qty) // base_qty)
+                return 0
+            new_row['赠品金额'] = parse_policy(policy, row.get('数量', 0))
+            # 其他字段（如渠道关系、流入人代码等）可直接从 row 拷贝或留空
+            # 这里假设这些字段已在客户流向表中，如没有可补充
+            for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织']:
+                if col not in new_row:
+                    new_row[col] = ''
+            result_rows.append(new_row)
+        # 获取所有字段名，保证表头完整
+        all_fields = list(result_rows[0].keys()) if result_rows else []
+        cursor.close()
+        conn.close()
+        return jsonify({"fields": all_fields, "rows": result_rows})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/get_tables', methods=['POST'])
 def api_get_tables():
