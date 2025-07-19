@@ -43,7 +43,13 @@ def clean_data_value(value, column_name):
     if value_str == '' or value_str == 'nan':
         return None
     
-    # 批号字段始终以字符串保存，且去除末尾的.0
+    # 批次字段始终以字符串保存，且去除末尾的.0
+    if '批次' in column_name:
+        if value_str.endswith('.0'):
+            value_str = value_str[:-2]
+        return value_str
+    
+    # 客户原始兑付明细表的批号字段始终以字符串保存，且去除末尾的.0
     if '批号' in column_name:
         if value_str.endswith('.0'):
             value_str = value_str[:-2]
@@ -147,10 +153,17 @@ def import_excel_data(excel_file, table_name, connection):
             df.columns = clean_columns
             print(f"清理后列名: {list(df.columns)}")
             
+        elif 'customer_redemption_details' in table_name:
+            df = pd.read_excel(excel_file, dtype={'批号': str})
+            # 清理列名
+            df.columns = [col.replace(' ', '_').replace('-', '_').replace('(', '').replace(')', '') for col in df.columns]
+            if '批号' not in df.columns:
+                df['批号'] = ''
+
         else:
             # 在导入数据时，强制将物料编码、流出方编码、出库单价、批次、金额列作为字符串处理
             if 'customer_flow' in table_name:
-                df = pd.read_excel(excel_file, dtype={'物料编码': str, '流出方编码': str, '流向价': str, '批号': str, '金额': str, '流入方组织': str, '客户分线': str, '供货价': str, '流出方组织': str})
+                df = pd.read_excel(excel_file, dtype={'物料编码': str, '流出方编码': str, '出库单价': str, '批次': str, '金额': str, '流入方组织': str, '客户分线': str, '供货价': str, '流出方组织': str})
 
             if 'output_results' in table_name:
                 df = pd.read_excel(excel_file, dtype={'物料编码': str, '流出方编码': str, '批次': str})

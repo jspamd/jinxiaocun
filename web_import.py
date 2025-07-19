@@ -23,7 +23,7 @@ ALLOWED_EXTENSIONS = {'xls', 'xlsx'}
 # 文件名与表名的映射
 FILENAME_TABLE_MAP = {
     '客户原始兑付明细': 'customer_redemption_details',
-    '客户流向': 'customer_flow',
+    '仲景宛西': 'customer_flow',
     '活动方案': 'activity_plan',
     '输出结果': 'output_results',
 }
@@ -31,7 +31,7 @@ FILENAME_TABLE_MAP = {
 # 表名与中文名称的映射
 TABLE_DISPLAY_NAMES = {
     'customer_redemption_details': '客户原始兑付明细',
-    'customer_flow': '客户流向',
+    'customer_flow': '仲景宛西',
     'activity_plan': '活动方案',
     'output_results': '输出结果',
 }
@@ -367,7 +367,7 @@ def upload_file():
     {% endif %}
     <div style="margin-top:30px; color:#888; font-size:13px;">
         <b>说明：</b><br>
-        1. 支持文件名：客户原始兑付明细.xls、客户流向.xls、活动方案.xlsx、输出结果.xls<br>
+        1. 支持文件名：客户原始兑付明细.xls、仲景宛西.xlsx、活动方案.xlsx、输出结果.xls<br>
         2. 每次导入会自动删除今天的数据，避免重复。<br>
         3. 遇到"进货单位"行自动停止导入。<br>
         4. 仅支持xls/xlsx格式。<br>
@@ -1436,7 +1436,7 @@ def api_output_results():
     try:
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
-        # 读取客户流向表
+        # 读取仲景宛西-客户流向表
         cursor.execute("SELECT * FROM customer_flow")
         flow_rows = cursor.fetchall()
         # 读取活动方案表
@@ -1448,7 +1448,7 @@ def api_output_results():
         for row in flow_rows:
             new_row = row.copy()
             # 活动政策
-            plan = plan_map.get(row.get('货品名称'))
+            plan = plan_map.get(row.get('物料名称'))
             policy = plan['活动政策'] if plan else ''
             new_row['活动政策'] = policy
             # 赠品金额
@@ -1460,9 +1460,9 @@ def api_output_results():
                     if base_qty > 0:
                         return base_amt * (int(qty) // base_qty)
                 return 0
-            new_row['赠品金额'] = parse_policy(policy, row.get('货品数量', 0))
+            new_row['赠品金额'] = parse_policy(policy, row.get('销售数量', 0))
             # 字段补充
-            for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织', '客户分线', '供货价', '流出方组织', '物料编码']:
+            for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织', '客户分线', '供货价', '流出方组织', '物料编码', '进货日期', '规格型号', '批次', '出库单价', '批号']:
                 if col not in new_row:
                     new_row[col] = ''
             result_rows.append(new_row)
