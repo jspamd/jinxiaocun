@@ -98,6 +98,7 @@
     </style>
 </head>
 <body class="font-sans bg-gray-100 p-0 m-0 w-screen h-screen min-h-screen">
+    <div id="globalMessage" style="display:none;position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;min-width:200px;max-width:90vw;padding:12px 24px;background:#22c55e;color:#fff;font-size:16px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);text-align:center;"></div>
     <div class="w-screen h-screen min-h-screen bg-white shadow-lg rounded-none p-0 m-0 flex flex-col">
         <!-- 表关联配置区域 -->
         <div class="bg-gray-50 p-6 rounded-none shadow-sm mb-8 w-full">
@@ -235,7 +236,10 @@
 
             <!-- 比对结果区域 -->
             <div class="bg-gray-50 p-4 rounded-lg shadow-sm overflow-x-auto border border-gray-200">
-                <h2 class="text-xl font-semibold text-gray-700 mb-3">比对结果</h2>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xl font-semibold text-gray-700">比对结果</h2>
+                    <button onclick="exportComparisonResults()" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 ml-2">导出</button>
+                </div>
                 <div id="comparisonResults" class="w-full text-sm">
                     <p class="text-gray-500 text-center py-4">点击“应用关联”按钮查看结果。</p>
                 </div>
@@ -261,7 +265,7 @@
 
             // 输出结果分页相关变量
             let outputPage = 1;
-            let outputPerPage = 50;
+            let outputPerPage = 500; // 默认每页500条
             let outputTotalPages = 1;
             let outputAllData = { fields: [], rows: [] };
             let outputFilteredData = [];
@@ -319,9 +323,14 @@
                 
                 // 为每个字段创建查询输入框
                 outputAllData.fields.forEach((field, index) => {
+                    // 取当前输入框的值（如果有）
+                    let filterVal = '';
+                    const oldInput = document.getElementById(`filter_${index}`);
+                    if (oldInput) filterVal = oldInput.value;
                     html += `<div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">${field}</label>
                         <input type="text" id="filter_${index}" placeholder="输入${field}查询条件" 
+                               value="${filterVal.replace(/"/g, '&quot;')}"
                                class="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500">
                     </div>`;
                 });
@@ -330,6 +339,7 @@
                 html += '<div class="flex justify-between items-center">';
                 html += '<button onclick="applyOutputFilters()" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200">查询</button>';
                 html += '<button onclick="clearOutputFilters()" class="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition duration-200">清空条件</button>';
+                html += '<button onclick="exportOutputResults()" class="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition duration-200 ml-2">导出</button>';
                 html += '</div>';
                 html += '</div>';
                 
@@ -346,10 +356,8 @@
                 html += `<button class="px-3 py-1 border rounded ${outputPage>=outputTotalPages?'bg-gray-200 text-gray-400':'bg-white hover:bg-gray-50'}" ${outputPage>=outputTotalPages?'disabled':''} onclick="changeOutputPage(${outputPage+1})">下一页</button>`;
                 html += `<button class="px-3 py-1 border rounded ${outputPage>=outputTotalPages?'bg-gray-200 text-gray-400':'bg-white hover:bg-gray-50'}" ${outputPage>=outputTotalPages?'disabled':''} onclick="changeOutputPage(${outputTotalPages})">末页</button>`;
                 html += `<select id="outputPerPageSelect" class="ml-2 border rounded px-2 py-1" onchange="changeOutputPerPage()">
-                            <option value="20" ${outputPerPage==20?'selected':''}>20/页</option>
-                            <option value="50" ${outputPerPage==50?'selected':''}>50/页</option>
-                            <option value="100" ${outputPerPage==100?'selected':''}>100/页</option>
-                            <option value="200" ${outputPerPage==200?'selected':''}>200/页</option>
+                            <option value="500" ${outputPerPage==500?'selected':''}>500/页</option>
+                            <option value="1000" ${outputPerPage==1000?'selected':''}>1000/页</option>
                         </select>`;
                 html += '</div>';
                 html += '</div>';
@@ -428,6 +436,33 @@
                 outputPerPage = parseInt(sel.value);
                 outputPage = 1;
                 renderOutputResults();
+            }
+
+            function exportOutputResults() {
+                if (!outputAllData.fields || !outputFilteredData) return;
+                // 过滤掉id字段
+                const exportFields = outputAllData.fields.filter(f => f !== 'id');
+                let csv = exportFields.join(',') + '\n';
+                outputFilteredData.forEach(row => {
+                    csv += exportFields.map(f => {
+                        let val = row[f] ?? '';
+                        // 转义逗号和引号
+                        if (typeof val === 'string' && (val.includes(',') || val.includes('"') || val.includes('\n'))) {
+                            val = '"' + val.replace(/"/g, '""') + '"';
+                        }
+                        return val;
+                    }).join(',') + '\n';
+                });
+                // 生成下载
+                const blob = new Blob([csv], {type: 'text/csv'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'output_results.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
             }
 
         // ========== 新增：全局数据库配置缓存 ==========
@@ -615,6 +650,10 @@
 
         // 修改比对结果渲染函数，表头上方加“左表（表名）”“右表（表名）”
         function renderCompareTable(rows, container) {
+            window.compareRowsCache = rows || []; // 这句必须放最前面，保证全局变量同步
+             // 关键：同步全局字段变量
+            window.currentKeyAFields = currentKeyAFields;
+            window.currentKeyBFields = currentKeyBFields;
             if (!container) {
                 console.error("Comparison results container not found!");
                 return;
@@ -624,7 +663,6 @@
                 container.innerHTML = '<p class="text-gray-500 text-center py-4">无比对结果。</p>';
                 return;
             }
-            compareRowsCache = rows;
             // 只显示关联字段
             const leftFields = currentKeyAFields;
             const rightFields = currentKeyBFields.filter(f => !leftFields.includes(f));
@@ -1101,7 +1139,7 @@
             try {
                 // In a real app, you'd send dbConfig to your backend to establish connection
                 await populateTableSelects();
-                alert("数据库连接成功！已加载表格列表。");
+                showGlobalMessage("数据库连接成功！已加载表格列表。");
 
                 // Set default tables after connecting
                 const leftTableSelect = document.getElementById('leftTableSelect');
@@ -1179,6 +1217,71 @@
             } catch (error) {
                 alert(`获取表格列表失败: ${error.message}`);
             }
+        }
+
+        function showGlobalMessage(msg, duration=2000) {
+            const div = document.getElementById('globalMessage');
+            if (!div) return;
+            div.textContent = msg;
+            div.style.display = 'block';
+            clearTimeout(div._hideTimer);
+            div._hideTimer = setTimeout(() => {
+                div.style.display = 'none';
+            }, duration);
+        }
+
+        function exportComparisonResults() {
+            if (!window.compareRowsCache || !Array.isArray(window.compareRowsCache) || window.compareRowsCache.length === 0) {
+                showGlobalMessage('暂无对比结果！');
+                return;
+            }
+            // 获取表名
+            const tableNameMap = {
+                'customer_redemption_details': '客户原始兑付明细',
+                'customer_flow': '客户流向',
+                'activity_plan': '活动方案',
+                'output_results': '输出结果'
+            };
+            const leftTableKey = document.getElementById('leftTableSelect')?.value || '';
+            const rightTableKey = document.getElementById('rightTableSelect')?.value || '';
+            const leftTableName = tableNameMap[leftTableKey] || leftTableKey;
+            const rightTableName = tableNameMap[rightTableKey] || rightTableKey;
+
+            // 字段
+            const leftFields = window.currentKeyAFields || [];
+            const rightFields = (window.currentKeyBFields || []).filter(f => !leftFields.includes(f));
+            const showFields = [...leftFields, ...rightFields];
+            if (showFields.length === 0) {
+                showGlobalMessage('无可导出的字段！');
+                return;
+            }
+            // 带表名的表头
+            const showFieldNames = [
+                ...leftFields.map(f => `左表（${leftTableName}）-${f}`),
+                ...rightFields.map(f => `右表（${rightTableName}）-${f}`)
+            ];
+
+            // 导出全部数据
+            let csv = showFieldNames.join(',') + '\n';
+            window.compareRowsCache.forEach(row => {
+                csv += showFields.map(f => {
+                    let val = row.data && row.data[f] !== undefined ? row.data[f] : '';
+                    if (typeof val === 'string' && (val.includes(',') || val.includes('\"') || val.includes('\n'))) {
+                        val = '\"' + val.replace(/\"/g, '\"\"') + '\"';
+                    }
+                    return val;
+                }).join(',') + '\n';
+            });
+            // 下载
+            const blob = new Blob([csv], {type: 'text/csv'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'comparison_results.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
 
