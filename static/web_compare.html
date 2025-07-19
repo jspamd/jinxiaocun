@@ -670,23 +670,24 @@
             const allFields = window.compareFields || Object.keys(rows[0].data || {});
             let splitIdx = 0;
             for (let i = 0; i < allFields.length; i++) {
-                if (allFields[i].startsWith('右表')) { splitIdx = i; break; }
+                if (allFields[i].startsWith('右')) { splitIdx = i; break; }
             }
-            // 先拼接分页控件
-            let tableHtml = `<div style="margin:16px 0;display:flex;justify-content:center;align-items:center;gap:10px;">`;
-            tableHtml += `<button onclick="window.comparePage=1;renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))" ${window.comparePage===1?'disabled':''}>首页</button>`;
-            tableHtml += `<button onclick="window.comparePage=Math.max(1,window.comparePage-1);renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))" ${window.comparePage===1?'disabled':''}>上一页</button>`;
+            // 横向滚动条容器包裹分页和表格
+            let tableHtml = '<div style="overflow-x:auto;width:100%;">';
+            // 只保留一套分页控件
+            tableHtml += `<div style=\"margin:16px 0;display:flex;justify-content:center;align-items:center;gap:10px;\">`;
+            tableHtml += `<button onclick=\"window.comparePage=1;renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))\" ${window.comparePage===1?'disabled':''}>首页</button>`;
+            tableHtml += `<button onclick=\"window.comparePage=Math.max(1,window.comparePage-1);renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))\" ${window.comparePage===1?'disabled':''}>上一页</button>`;
             tableHtml += `<span>第 ${window.comparePage} / ${totalPages} 页</span>`;
-            tableHtml += `<button onclick="window.comparePage=Math.min(${totalPages},window.comparePage+1);renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))" ${window.comparePage===totalPages?'disabled':''}>下一页</button>`;
-            tableHtml += `<button onclick="window.comparePage=${totalPages};renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))" ${window.comparePage===totalPages?'disabled':''}>末页</button>`;
+            tableHtml += `<button onclick=\"window.comparePage=Math.min(${totalPages},window.comparePage+1);renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))\" ${window.comparePage===totalPages?'disabled':''}>下一页</button>`;
+            tableHtml += `<button onclick=\"window.comparePage=${totalPages};renderCompareTable(window.compareRowsCache,document.getElementById('comparisonResults'))\" ${window.comparePage===totalPages?'disabled':''}>末页</button>`;
             tableHtml += `<span style='margin-left:16px;'>共 ${total} 条</span>`;
             tableHtml += '</div>';
-            // 再拼接表格
             tableHtml += '<table class="min-w-full bg-white border border-gray-200 rounded-md overflow-hidden">';
             tableHtml += '<thead><tr class="bg-header">';
             allFields.forEach((header, idx) => {
                 let style = '';
-                if (idx === splitIdx && idx !== 0) style = 'border-right:2px solid #888;';
+                if (idx === splitIdx && splitIdx > 0) style = 'border-left:2px solid #888;';
                 tableHtml += `<th class="py-2 px-4 border-b border-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style="${style}">${header}</th>`;
             });
             tableHtml += '</tr></thead><tbody>';
@@ -698,12 +699,13 @@
                 tableHtml += `<tr class="hover:bg-gray-50 ${rowClass}">`;
                 allFields.forEach((header, idx) => {
                     let style = '';
-                    if (idx === splitIdx && idx !== 0) style = 'border-right:2px solid #888;';
+                    if (idx === splitIdx && splitIdx > 0) style = 'border-left:2px solid #888;';
                     tableHtml += `<td class="py-2 px-4 border-b border-gray-200" style="${style}">${row.data && row.data[header] !== undefined ? row.data[header] : ''}</td>`;
                 });
                 tableHtml += '</tr>';
             });
             tableHtml += '</tbody></table>';
+            tableHtml += '</div>';
             container.innerHTML = tableHtml;
         }
 

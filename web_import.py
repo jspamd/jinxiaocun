@@ -1482,7 +1482,7 @@ def api_output_results():
         all_fields_set = set()
         for row in flow_rows:
             # 左表字段加前缀
-            new_row = {f'左表（客户流向）-{k}': row.get(k, '') for k in flow_fields}
+            new_row = {f'左-{k}': row.get(k, '') for k in flow_fields}
             # 活动政策
             plan = plan_map.get(row.get('物料名称'))
             policy = plan['活动政策'] if plan else ''
@@ -1600,11 +1600,18 @@ def api_compare_join():
             database=dbconf.get('database', '')
         )
         cursor = conn.cursor()
+        # 获取字段名
+        cursor.execute(f"DESCRIBE `{tableA}`")
+        fieldsA = [row[0] for row in cursor.fetchall()]
+        cursor.execute(f"DESCRIBE `{tableB}`")
+        fieldsB = [row[0] for row in cursor.fetchall()]
+        # 拼接select字段
+        select_fields = [f"a.`{f}` AS '左-{f}'" for f in fieldsA] + [f"b.`{f}` AS '右-{f}'" for f in fieldsB]
+        select_sql = ", ".join(select_fields)
         # 构造ON条件，支持日期格式化
         on_clauses = []
         for kA, kB in zip(keysA, keysB):
             if date_fields.get('A') == kA and date_fields.get('B') == kB:
-                # 两边都需要格式化
                 on_clauses.append(f"DATE_FORMAT(a.`{kA}`,'%Y/%c/%e') = DATE_FORMAT(b.`{kB}`,'%Y/%c/%e')")
             elif date_fields.get('A') == kA:
                 on_clauses.append(f"DATE_FORMAT(a.`{kA}`,'%Y/%c/%e') = b.`{kB}`")
@@ -1613,7 +1620,7 @@ def api_compare_join():
             else:
                 on_clauses.append(f"a.`{kA}` = b.`{kB}`")
         on_sql = ' AND '.join(on_clauses)
-        sql = f"SELECT a.*, b.* FROM `{tableA}` a JOIN `{tableB}` b ON {on_sql}"
+        sql = f"SELECT {select_sql} FROM `{tableA}` a JOIN `{tableB}` b ON {on_sql}"
         print(f"[DEBUG] JOIN SQL: {sql}")
         cursor.execute(sql)
         columns = [desc[0] for desc in cursor.description]
