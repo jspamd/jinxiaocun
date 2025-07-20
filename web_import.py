@@ -1631,7 +1631,13 @@ def api_output_results():
         # 生成输出结果（只包含左表数据）
         print("5. 开始生成输出结果...")
         result_rows = []
-        all_fields_set = set()
+        
+        # 保持原始字段顺序，并添加计算字段
+        all_fields = flow_fields.copy()  # 保持原始字段顺序
+        if '活动政策' not in all_fields:
+            all_fields.append('活动政策')
+        if '赠品金额' not in all_fields:
+            all_fields.append('赠品金额')
         
         for i, row in enumerate(flow_rows):
             print(f"处理第 {i+1} 条记录: 物料名称={row.get('物料名称', 'N/A')}")
@@ -1660,10 +1666,6 @@ def api_output_results():
             new_row['赠品金额'] = parse_policy(policy, qty)
             
             result_rows.append(new_row)
-            all_fields_set.update(new_row.keys())
-        
-        # 获取所有字段名，保证表头完整
-        all_fields = list(all_fields_set)
         print(f"最终字段数: {len(all_fields)}")
         print(f"最终记录数: {len(result_rows)}")
         

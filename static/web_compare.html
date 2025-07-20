@@ -272,7 +272,7 @@
             let outputFilteredData = [];
 
             // 加载输出结果数据
-            async function loadOutputResults() {
+            window.loadOutputResults = async function() {
                 const tableDiv = document.getElementById('showOutputResults');
                 tableDiv.innerHTML = '<div class="text-blue-500 text-center py-4">正在加载...</div>';
                 try {
@@ -280,30 +280,12 @@
                     const data = await resp.json();
                     if (!data.fields || !data.rows) throw new Error('数据格式错误');
                     
-                    // 保存所有数据
+                    // 保存所有数据，使用后端返回的字段顺序
                     outputAllData = data;
                     outputFilteredData = data.rows;
                     outputPage = 1;
                     
-                    // 自动计算赠品金额
-                    if (!outputAllData.fields.includes('赠品金额')) {
-                        outputAllData.fields.push('赠品金额');
-                    }
-                    outputAllData.rows.forEach(row => {
-                        // 假设字段名为"销售数量"和"活动政策"
-                        const num = parseInt(row['销售数量'] || row['数量'] || 0, 10);
-                        let amount = 0;
-                        // 匹配"购X盒，返Y元"
-                        const match = (row['活动政策'] || '').match(/购(\d+)盒.*?返(\d+)元/);
-                        if (match) {
-                            const base = parseInt(match[1], 10);
-                            const reward = parseFloat(match[2]);
-                            if (base > 0) {
-                                amount = Math.floor(num / base) * reward;
-                            }
-                        }
-                        row['赠品金额'] = amount;
-                    });
+                    // 后端已经计算了赠品金额，不需要前端重复计算
 
                     // 渲染输出结果界面
                     renderOutputResults();
@@ -313,7 +295,7 @@
             }
 
             // 渲染输出结果界面（包含查询条件和分页）
-            function renderOutputResults() {
+            window.renderOutputResults = function() {
                 const tableDiv = document.getElementById('showOutputResults');
                 
                 // 构建查询条件区域
@@ -392,7 +374,7 @@
             }
 
             // 应用查询条件
-            function applyOutputFilters() {
+            window.applyOutputFilters = function() {
                 const filters = {};
                 outputAllData.fields.forEach((field, index) => {
                     const value = document.getElementById(`filter_${index}`).value.trim();
@@ -414,7 +396,7 @@
             }
 
             // 清空查询条件
-            function clearOutputFilters() {
+            window.clearOutputFilters = function() {
                 outputAllData.fields.forEach((field, index) => {
                     const input = document.getElementById(`filter_${index}`);
                     if (input) input.value = '';
@@ -426,20 +408,20 @@
             }
 
             // 切换输出结果页面
-            function changeOutputPage(page) {
+            window.changeOutputPage = function(page) {
                 outputPage = Math.max(1, Math.min(page, outputTotalPages));
                 renderOutputResults();
             }
 
             // 切换输出结果每页显示数量
-            function changeOutputPerPage() {
+            window.changeOutputPerPage = function() {
                 const sel = document.getElementById('outputPerPageSelect');
                 outputPerPage = parseInt(sel.value);
                 outputPage = 1;
                 renderOutputResults();
             }
 
-            function exportOutputResults() {
+            window.exportOutputResults = function() {
                 if (!outputAllData.fields || !outputFilteredData) return;
                 // 过滤掉id字段
                 const exportFields = outputAllData.fields.filter(f => f !== 'id');
