@@ -740,7 +740,6 @@ def query_data():
                     <select id="sortOrdersSelect" multiple></select>
                 </div>
                 <div class="search-box" style="display: flex; align-items: center; gap: 10px;">
-                    <button class="search-btn" style="margin:0;" onclick="openAddDialog()">新增</button>
                     <div style="position:relative;display:inline-block;">
                         <input type="text" id="searchInput" class="nice-input" placeholder="搜索关键词..." value="{{ search_term }}" style="padding-right:28px;">
                         <span id="clearSearchBtn" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;color:#bbb;">×</span>
@@ -1466,7 +1465,7 @@ def api_output_results():
     try:
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
-        # 读取客户流向表
+        # 读取仲景宛西-客户流向表
         cursor.execute("DESCRIBE customer_flow")
         flow_fields = [row[0] for row in cursor.fetchall()]
         cursor.execute("SELECT * FROM customer_flow")
@@ -1486,7 +1485,7 @@ def api_output_results():
             # 活动政策
             plan = plan_map.get(row.get('物料名称'))
             policy = plan['活动政策'] if plan else ''
-            new_row['左表（客户流向）-活动政策'] = policy
+            new_row['左-活动政策'] = policy
             # 赠品金额
             def parse_policy(policy, qty):
                 m = re.search(r'购(\d+)盒.*?返(\d+)元', policy)
@@ -1496,17 +1495,17 @@ def api_output_results():
                     if base_qty > 0:
                         return base_amt * (int(qty) // base_qty)
                 return 0
-            new_row['左表（客户流向）-赠品金额'] = parse_policy(policy, row.get('销售数量', 0))
+            new_row['左-赠品金额'] = parse_policy(policy, row.get('销售数量', 0))
             # 右表字段加前缀
             if plan:
                 for k in plan_fields:
-                    new_row[f'右表（活动方案）-{k}'] = plan.get(k, '')
+                    new_row[f'右-{k}'] = plan.get(k, '')
             else:
                 for k in plan_fields:
-                    new_row[f'右表（活动方案）-{k}'] = ''
+                    new_row[f'右-{k}'] = ''
             # 其它补充字段
             for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织', '客户分线', '供货价', '流出方组织', '物料编码', '进货日期', '规格型号', '批次', '出库单价', '批号']:
-                key = f'左表（客户流向）-{col}'
+                key = f'左-{col}'
                 if key not in new_row:
                     new_row[key] = ''
             result_rows.append(new_row)
