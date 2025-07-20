@@ -46,19 +46,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].strip().lower() in ALLOWED_EXTENSIONS
 
-def format_sql_with_params(sql, params):
-    """格式化SQL语句，将参数替换到SQL中以便调试"""
-    if not params:
-        return sql
-    
-    formatted_sql = sql
-    for param in params:
-        if isinstance(param, str):
-            formatted_sql = formatted_sql.replace('%s', f"'{param}'", 1)
-        else:
-            formatted_sql = formatted_sql.replace('%s', str(param), 1)
-    
-    return formatted_sql
+
 
 def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order='ASC', search_term=None, fields=None):
     """获取表数据，支持分页、排序和搜索，可选字段"""
@@ -69,6 +57,10 @@ def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order
         # 获取表结构
         cursor.execute(f"DESCRIBE {table_name}")
         all_columns = [row['Field'] for row in cursor.fetchall()]
+        
+        # 过滤掉已删除字段
+        if table_name == 'customer_redemption_details':
+            all_columns = [col for col in all_columns if col not in REMOVED_FIELDS]
         
         # 处理查询字段
         if fields:
@@ -87,10 +79,15 @@ def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order
             search_conditions = []
             for col in select_fields:
                 if col != 'id' and col != '当期日期':  # 排除id和日期字段
-                    search_conditions.append(f"{col} LIKE %s")
+                    search_conditions.append(f"`{col}` LIKE %s")
                     params.append(f"%{search_term}%")
             if search_conditions:
                 where_clause = "WHERE " + " OR ".join(search_conditions)
+        
+        # 调试信息
+        print(f"搜索条件: {where_clause}")
+        print(f"参数数量: {len(params)}")
+        print(f"参数内容: {params}")
         
         # 构建多字段排序
         order_clause = ""
@@ -100,7 +97,7 @@ def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order
             order_items = []
             for idx, field in enumerate(sort_fields):
                 order = sort_orders[idx] if idx < len(sort_orders) and sort_orders[idx] in ('ASC', 'DESC') else 'ASC'
-                order_items.append(f"{field} {order}")
+                order_items.append(f"`{field}` {order}")
             if order_items:
                 order_clause = "ORDER BY " + ", ".join(order_items)
         
@@ -108,20 +105,18 @@ def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order
         count_query = f"SELECT COUNT(*) as total FROM {table_name} {where_clause}"
         print(f"=== 执行SQL查询 ===")
         print(f"计数查询: {count_query}")
-        print(f"格式化后的计数查询: {format_sql_with_params(count_query, params)}")
+        print(f"参数: {params}")
         cursor.execute(count_query, params)
         total_records = cursor.fetchone()['total']
         
         # 计算分页
         offset = (page - 1) * per_page
         
-        # 处理字段格式化，特别是当期日期字段
+        # 处理字段格式化，排除当期日期字段
         formatted_fields = []
         for field in select_fields:
-            if field == '当期日期':
-                formatted_fields.append(f"DATE_FORMAT({field}, '%Y-%m-%d %H:%i:%s') as {field}")
-            else:
-                formatted_fields.append(field)
+            if field != '当期日期':  # 排除当期日期字段
+                formatted_fields.append(f"`{field}`")
         
         select_fields_sql = ', '.join(formatted_fields)
         
@@ -133,7 +128,9 @@ def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order
             LIMIT {per_page} OFFSET {offset}
         """
         print(f"数据查询: {query}")
-        print(f"格式化后的数据查询: {format_sql_with_params(query, params)}")
+        print(f"参数: {params}")
+        print(f"参数数量: {len(params)}")
+        print(f"SQL中的占位符数量: {query.count('%s')}")
         print(f"=== SQL查询结束 ===")
         cursor.execute(query, params)
         data = cursor.fetchall()
