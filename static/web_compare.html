@@ -667,7 +667,34 @@
             const startIdx = (window.comparePage - 1) * pageSize;
             const endIdx = Math.min(startIdx + pageSize, total);
             const pageRows = rows.slice(startIdx, endIdx);
-            const allFields = window.compareFields || Object.keys(rows[0].data || {});
+            // 获取所有可能的字段，过滤掉ID字段
+            let allFields = [];
+            rows.forEach(row => {
+                if (row.data) {
+                    Object.keys(row.data).forEach(key => {
+                        // 过滤掉左ID和右ID字段
+                        if (!key.includes('左id') && !key.includes('右id') && 
+                            !key.includes('左-id') && !key.includes('右-id') &&
+                            !key.includes('左_id') && !key.includes('右_id') &&
+                            !allFields.includes(key)) {
+                            allFields.push(key);
+                        }
+                    });
+                }
+            });
+            
+            // 如果没有字段信息，尝试从第一个匹配的行获取
+            if (allFields.length === 0 && rows.length > 0) {
+                const matchedRow = rows.find(row => row.type === 'matched');
+                if (matchedRow && matchedRow.data) {
+                    allFields = Object.keys(matchedRow.data);
+                }
+            }
+            
+            // 如果还是没有字段信息，使用默认字段
+            if (allFields.length === 0) {
+                allFields = window.compareFields || [];
+            }
             let splitIdx = 0;
             for (let i = 0; i < allFields.length; i++) {
                 if (allFields[i].startsWith('右')) { splitIdx = i; break; }
@@ -700,7 +727,11 @@
                 allFields.forEach((header, idx) => {
                     let style = '';
                     if (idx === splitIdx && splitIdx > 0) style = 'border-left:2px solid #888;';
-                    tableHtml += `<td class="py-2 px-4 border-b border-gray-200" style="${style}">${row.data && row.data[header] !== undefined ? row.data[header] : ''}</td>`;
+                    let cellValue = '';
+                    if (row.data && row.data[header] !== undefined) {
+                        cellValue = row.data[header];
+                    }
+                    tableHtml += `<td class="py-2 px-4 border-b border-gray-200" style="${style}">${cellValue}</td>`;
                 });
                 tableHtml += '</tr>';
             });
@@ -753,6 +784,13 @@
             const matchedBIndices = new Set();
             const leftOnlyRows = [];
             const rightOnlyRows = [];
+            
+            // 构建完整的字段列表，用于left_only和right_only行
+            let allFields = [];
+            if (matchedRows.length > 0 && matchedRows[0].data) {
+                allFields = Object.keys(matchedRows[0].data);
+            }
+            
             // 先用前端逻辑找出left_only/right_only
             dataA.forEach((rowA, idxA) => {
                 let matched = false;
@@ -765,12 +803,53 @@
                     }
                 }
                 if (!matched) {
-                    leftOnlyRows.push({type: 'left_only', data: rowA});
+                    // 为left_only行构建完整的数据结构
+                    let leftOnlyData = {};
+                    if (allFields.length > 0) {
+                        allFields.forEach(field => {
+                            if (field.startsWith('左-')) {
+                                // 移除"左-"前缀，从rowA中获取数据
+                                const originalField = field.substring(2);
+                                leftOnlyData[field] = rowA[originalField] || '';
+                            } else if (field.startsWith('右-')) {
+                                // 右表字段设为空
+                                leftOnlyData[field] = '';
+                            } else {
+                                // 其他字段从rowA中获取
+                                leftOnlyData[field] = rowA[field] || '';
+                            }
+                        });
+                    } else {
+                        // 如果没有完整的字段列表，直接使用rowA的数据
+                        leftOnlyData = {...rowA};
+                    }
+                    leftOnlyRows.push({type: 'left_only', data: leftOnlyData});
                 }
             });
+            
             dataB.forEach((rowB, idxB) => {
                 if (!matchedBIndices.has(idxB)) {
-                    rightOnlyRows.push({type: 'right_only', data: rowB});
+                    // 为right_only行构建完整的数据结构
+                    let rightOnlyData = {};
+                    if (allFields.length > 0) {
+                        allFields.forEach(field => {
+                            if (field.startsWith('右-')) {
+                                // 移除"右-"前缀，从rowB中获取数据
+                                const originalField = field.substring(2);
+                                rightOnlyData[field] = rowB[originalField] || '';
+                            } else if (field.startsWith('左-')) {
+                                // 左表字段设为空
+                                rightOnlyData[field] = '';
+                            } else {
+                                // 其他字段从rowB中获取
+                                rightOnlyData[field] = rowB[field] || '';
+                            }
+                        });
+                    } else {
+                        // 如果没有完整的字段列表，直接使用rowB的数据
+                        rightOnlyData = {...rowB};
+                    }
+                    rightOnlyRows.push({type: 'right_only', data: rightOnlyData});
                 }
             });
             // 合并，先matched再left_only再right_only
@@ -781,6 +860,28 @@
             }
             comparePage = 1;
             renderCompareTable(allRows, comparisonResults);
+            
+            // 自动切换到比对结果视图
+            const previewSection = document.querySelector('.flex.flex-col.lg\\:flex-row.gap-6.mb-8');
+            const outputSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200:last-child');
+            
+            if (previewSection) {
+                previewSection.style.display = 'none';
+            }
+            if (outputSection) {
+                outputSection.style.display = 'none';
+            }
+            
+            // 比对结果区域已经在显示，不需要隐藏
+            
+            // 记录当前视图状态
+            window.currentView = 'comparison';
+            
+            // 确保比对结果区域可见
+            const comparisonSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200');
+            if (comparisonSection) {
+                comparisonSection.style.display = 'block';
+            }
         }
 
         // Event listener: Save current comparison
@@ -1232,8 +1333,14 @@
                 showGlobalMessage('暂无对比结果！');
                 return;
             }
-            // 用页面显示的字段顺序导出（后端返回的fields）
-            const allFields = window.compareFields || Object.keys(window.compareRowsCache[0]?.data || {});
+            // 用页面显示的字段顺序导出（后端返回的fields），过滤掉ID字段
+            let allFields = window.compareFields || Object.keys(window.compareRowsCache[0]?.data || {});
+            // 过滤掉ID字段
+            allFields = allFields.filter(field => 
+                !field.includes('左id') && !field.includes('右id') && 
+                !field.includes('左-id') && !field.includes('右-id') &&
+                !field.includes('左_id') && !field.includes('右_id')
+            );
             let csv = allFields.join(',') + '\n';
             window.compareRowsCache.forEach(row => {
                 csv += allFields.map(f => {
@@ -1260,8 +1367,14 @@
                 showGlobalMessage('暂无对比结果！');
                 return;
             }
-            // 用页面显示的字段顺序导出（后端返回的fields）
-            const allFields = window.compareFields || Object.keys(window.compareRowsCache[0]?.data || {});
+            // 用页面显示的字段顺序导出（后端返回的fields），过滤掉ID字段
+            let allFields = window.compareFields || Object.keys(window.compareRowsCache[0]?.data || {});
+            // 过滤掉ID字段
+            allFields = allFields.filter(field => 
+                !field.includes('左id') && !field.includes('右id') && 
+                !field.includes('左-id') && !field.includes('右-id') &&
+                !field.includes('左_id') && !field.includes('右_id')
+            );
             let html = `<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;font-size:14px;">`;
             html += `<tr style="background:#e2e8f0;font-weight:bold;">`;
             allFields.forEach(name => {
@@ -1319,8 +1432,17 @@
 
 
             // Attach all event listeners
-            if (applyAssociationBtn) applyAssociationBtn.addEventListener('click', performComparison);
-            else console.error("applyAssociationBtn is null! Cannot attach event listener.");
+            if (applyAssociationBtn) {
+                applyAssociationBtn.addEventListener('click', function() {
+                    if (window.currentView === 'output') {
+                        // 如果当前在输出结果视图，切换到比对结果视图
+                        showComparisonView();
+                    } else {
+                        // 否则执行比对
+                        performComparison();
+                    }
+                });
+            } else console.error("applyAssociationBtn is null! Cannot attach event listener.");
 
             if (newComparisonBtn) newComparisonBtn.addEventListener('click', newComparison);
             else console.error("newComparisonBtn is null! Cannot attach event listener.");
@@ -1375,17 +1497,15 @@
                     outputSection.style.display = 'block';
                 }
 
-                // 修改按钮文本为"返回数据视图"
-                const btn = document.getElementById('showOutputResultsBtn');
-                btn.textContent = '返回数据视图';
-                btn.onclick = showDataView; // 切换回数据视图
+                // 记录当前视图状态
+                window.currentView = 'output';
 
                 // 加载数据
                 await loadOutputResults();
             };
 
-            // 添加返回数据视图的函数
-            function showDataView() {
+            // 添加显示比对结果视图的函数
+            function showComparisonView() {
                 // 显示原始数据预览区域和比对结果区域
                 const previewSection = document.querySelector('.flex.flex-col.lg\\:flex-row.gap-6.mb-8');
                 const comparisonSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200');
@@ -1403,36 +1523,8 @@
                     outputSection.style.display = 'none';
                 }
 
-                // 恢复按钮文本和功能
-                const btn = document.getElementById('showOutputResultsBtn');
-                btn.textContent = '输出结果';
-                // 重新绑定原始的输出结果事件
-                btn.onclick = async function() {
-                    // 隐藏原始数据预览区域和比对结果区域
-                    const previewSection = document.querySelector('.flex.flex-col.lg\\:flex-row.gap-6.mb-8');
-                    const comparisonSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200');
-                    
-                    if (previewSection) {
-                        previewSection.style.display = 'none';
-                    }
-                    if (comparisonSection) {
-                        comparisonSection.style.display = 'none';
-                    }
-
-                    // 显示输出结果展示区域
-                    const outputSection = document.querySelector('.bg-gray-50.p-4.rounded-lg.shadow-sm.overflow-x-auto.border.border-gray-200:last-child');
-                    if (outputSection) {
-                        outputSection.style.display = 'block';
-                    }
-
-                    // 修改按钮文本为"返回数据视图"
-                    const btn = document.getElementById('showOutputResultsBtn');
-                    btn.textContent = '返回数据视图';
-                    btn.onclick = showDataView; // 切换回数据视图
-
-                    // 加载数据
-                    await loadOutputResults();
-                };
+                // 记录当前视图状态
+                window.currentView = 'comparison';
             }
 
 
