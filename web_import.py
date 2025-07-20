@@ -115,6 +115,16 @@ def get_table_data(table_name, page=1, per_page=500, sort_field=None, sort_order
         # 计算分页
         offset = (page - 1) * per_page
         
+        # 处理字段格式化，特别是当期日期字段
+        formatted_fields = []
+        for field in select_fields:
+            if field == '当期日期':
+                formatted_fields.append(f"DATE_FORMAT({field}, '%Y-%m-%d %H:%i:%s') as {field}")
+            else:
+                formatted_fields.append(field)
+        
+        select_fields_sql = ', '.join(formatted_fields)
+        
         # 获取数据
         query = f"""
             SELECT {select_fields_sql} FROM {table_name} 
@@ -1521,8 +1531,21 @@ def export_excel():
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
         
-        # 查询时排除 id 和当前日期字段
-        sql = f"SELECT * FROM `{table_name}` WHERE id IN ({','.join(['%s'] * len(ids))})"
+        # 获取表结构以确定字段
+        cursor.execute(f"DESCRIBE `{table_name}`")
+        describe_result = cursor.fetchall()
+        all_fields = [desc['Field'] for desc in describe_result]
+        
+        # 构建查询字段，格式化当期日期
+        select_fields = []
+        for field in all_fields:
+            if field == '当期日期':
+                select_fields.append(f"DATE_FORMAT({field}, '%Y-%m-%d %H:%i:%s') as {field}")
+            else:
+                select_fields.append(field)
+        
+        select_sql = ', '.join(select_fields)
+        sql = f"SELECT {select_sql} FROM `{table_name}` WHERE id IN ({','.join(['%s'] * len(ids))})"
         print(f"执行SQL: {sql}")
         print(f"参数: {ids}")
         
@@ -1565,7 +1588,7 @@ def api_output_results():
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
         
-        # 读取仲景宛西-客户流向表
+        # 只读取仲景宛西-客户流向表（左表）
         print("1. 获取 customer_flow 表结构...")
         cursor.execute("DESCRIBE customer_flow")
         describe_result = cursor.fetchall()
@@ -1575,11 +1598,20 @@ def api_output_results():
         print(f"customer_flow 字段: {flow_fields}")
         
         print("2. 查询 customer_flow 表数据...")
-        cursor.execute("SELECT * FROM customer_flow")
+        # 构建查询字段，格式化当期日期
+        select_fields = []
+        for field in flow_fields:
+            if field == '当期日期':
+                select_fields.append(f"DATE_FORMAT({field}, '%Y-%m-%d %H:%i:%s') as {field}")
+            else:
+                select_fields.append(field)
+        
+        select_sql = ', '.join(select_fields)
+        cursor.execute(f"SELECT {select_sql} FROM customer_flow")
         flow_rows = cursor.fetchall()
         print(f"customer_flow 表记录数: {len(flow_rows)}")
         
-        # 读取活动方案表
+        # 读取活动方案表（用于计算赠品金额）
         print("3. 获取 activity_plan 表结构...")
         cursor.execute("DESCRIBE activity_plan")
         describe_result = cursor.fetchall()
@@ -1596,7 +1628,7 @@ def api_output_results():
         plan_map = {row['产品名称']: row for row in plan_rows}
         print(f"活动方案映射表大小: {len(plan_map)}")
         
-        # 生成输出结果
+        # 生成输出结果（只包含左表数据）
         print("5. 开始生成输出结果...")
         result_rows = []
         all_fields_set = set()
@@ -1604,13 +1636,13 @@ def api_output_results():
         for i, row in enumerate(flow_rows):
             print(f"处理第 {i+1} 条记录: 物料名称={row.get('物料名称', 'N/A')}")
             
-            # 左表字段加前缀
-            new_row = {f'左-{k}': row.get(k, '') for k in flow_fields}
+            # 只保留左表字段，不加前缀
+            new_row = {k: row.get(k, '') for k in flow_fields}
             
             # 活动政策
             plan = plan_map.get(row.get('物料名称'))
             policy = plan['活动政策'] if plan else ''
-            new_row['左-活动政策'] = policy
+            new_row['活动政策'] = policy
             
             # 赠品金额
             def parse_policy(policy, qty):
@@ -1625,21 +1657,7 @@ def api_output_results():
                 return 0
             
             qty = row.get('销售数量', 0)
-            new_row['左-赠品金额'] = parse_policy(policy, qty)
-            
-            # 右表字段加前缀
-            if plan:
-                for k in plan_fields:
-                    new_row[f'右-{k}'] = plan.get(k, '')
-            else:
-                for k in plan_fields:
-                    new_row[f'右-{k}'] = ''
-            
-            # 其它补充字段
-            for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织', '客户分线', '供货价', '流出方组织', '物料编码', '进货日期', '规格型号', '批次', '出库单价', '批号']:
-                key = f'左-{col}'
-                if key not in new_row:
-                    new_row[key] = ''
+            new_row['赠品金额'] = parse_policy(policy, qty)
             
             result_rows.append(new_row)
             all_fields_set.update(new_row.keys())
@@ -1731,8 +1749,16 @@ def api_get_table_data():
         all_fields = [desc[0] for desc in describe_result]
         print(f"表字段: {all_fields}")
         
-        # 查询所有数据
-        sql = f"SELECT * FROM `{table}`"
+        # 查询所有数据，格式化当期日期字段
+        select_fields = []
+        for field in all_fields:
+            if field == '当期日期':
+                select_fields.append(f"DATE_FORMAT({field}, '%Y-%m-%d %H:%i:%s') as {field}")
+            else:
+                select_fields.append(field)
+        
+        select_sql = ', '.join(select_fields)
+        sql = f"SELECT {select_sql} FROM `{table}`"
         print(f"2. 执行SQL: {sql}")
         cursor.execute(sql)
         rows = cursor.fetchall()
