@@ -1338,25 +1338,46 @@ def api_data():
 def api_add_row():
     table = request.json.get('table')
     data = request.json.get('data')  # dict
+    
+    print(f"=== api_add_row 请求参数 ===")
+    print(f"表名: {table}")
+    print(f"数据: {data}")
+    
     if not table or not data:
         return jsonify({'success': False, 'msg': '参数缺失'}), 400
+    
     # 把空字符串转为None
     for k, v in data.items():
         if isinstance(v, str) and v.strip() == '':
             data[k] = None
+    
     try:
         conn = create_connection()
         cursor = conn.cursor()
         fields = ','.join([f'`{k}`' for k in data.keys()])
         values = ','.join(['%s'] * len(data))
         sql = f"INSERT INTO `{table}` ({fields}) VALUES ({values})"
-        cursor.execute(sql, list(data.values()))
+        params = list(data.values())
+        
+        print(f"执行SQL: {sql}")
+        print(f"参数: {params}")
+        
+        cursor.execute(sql, params)
         conn.commit()
         cursor.close()
         conn.close()
+        
+        print("=== api_add_row 执行完成 ===")
         return jsonify({'success': True})
+        
     except Exception as e:
-        return jsonify({'success': False, 'msg': str(e)}), 500
+        import traceback
+        print(f"=== api_add_row 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'success': False, 'msg': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/api/update_row', methods=['POST'])
 def api_update_row():
@@ -1364,82 +1385,150 @@ def api_update_row():
     pk_name = request.json.get('pk_name')
     pk_value = request.json.get('pk_value')
     data = request.json.get('data')  # dict
+    
+    print(f"=== api_update_row 请求参数 ===")
+    print(f"表名: {table}")
+    print(f"主键名: {pk_name}")
+    print(f"主键值: {pk_value}")
+    print(f"更新数据: {data}")
+    
     if not table or not pk_name or pk_value is None or not data:
         print('参数缺失:', table, pk_name, pk_value, data)
         return jsonify({'success': False, 'msg': '参数缺失'}), 400
+    
     # 把空字符串转为None
     for k, v in data.items():
         if isinstance(v, str) and v.strip() == '':
             data[k] = None
+    
     try:
         conn = create_connection()
         cursor = conn.cursor()
         set_clause = ','.join([f'`{k}`=%s' for k in data.keys()])
         sql = f"UPDATE `{table}` SET {set_clause} WHERE `{pk_name}`=%s"
         params = list(data.values()) + [pk_value]
-        print('UPDATE SQL:', sql)
-        print('PARAMS:', params)
+        
+        print(f"执行SQL: {sql}")
+        print(f"参数: {params}")
+        
         cursor.execute(sql, params)
         conn.commit()
         cursor.close()
         conn.close()
+        
+        print("=== api_update_row 执行完成 ===")
         return jsonify({'success': True})
+        
     except Exception as e:
-        print('UPDATE SQL ERROR:', sql)
-        print('PARAMS:', params)
-        print('EXCEPTION:', e)
-        return jsonify({'success': False, 'msg': str(e)}), 500
+        import traceback
+        print(f"=== api_update_row 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'success': False, 'msg': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/api/delete_row', methods=['POST'])
 def api_delete_row():
     table = request.json.get('table')
     pk_name = request.json.get('pk_name')
     pk_value = request.json.get('pk_value')
+    
+    print(f"=== api_delete_row 请求参数 ===")
+    print(f"表名: {table}")
+    print(f"主键名: {pk_name}")
+    print(f"主键值: {pk_value}")
+    
     if not table or not pk_name or pk_value is None:
         return jsonify({'success': False, 'msg': '参数缺失'}), 400
+    
     try:
         conn = create_connection()
         cursor = conn.cursor()
         sql = f"DELETE FROM `{table}` WHERE `{pk_name}`=%s"
-        cursor.execute(sql, (pk_value,))
+        params = (pk_value,)
+        
+        print(f"执行SQL: {sql}")
+        print(f"参数: {params}")
+        
+        cursor.execute(sql, params)
         conn.commit()
         cursor.close()
         conn.close()
+        
+        print("=== api_delete_row 执行完成 ===")
         return jsonify({'success': True})
+        
     except Exception as e:
-        return jsonify({'success': False, 'msg': str(e)}), 500
+        import traceback
+        print(f"=== api_delete_row 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'success': False, 'msg': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/api/batch_delete', methods=['POST'])
 def api_batch_delete():
     table = request.json.get('table')
     ids = request.json.get('ids')  # list
+    
+    print(f"=== api_batch_delete 请求参数 ===")
+    print(f"表名: {table}")
+    print(f"删除ID列表: {ids}")
+    
     if not table or not ids:
         return jsonify({'success': False, 'msg': '参数缺失'}), 400
+    
     try:
         conn = create_connection()
         cursor = conn.cursor()
         sql = f"DELETE FROM `{table}` WHERE `id` IN ({','.join(['%s'] * len(ids))})"
+        
+        print(f"执行SQL: {sql}")
+        print(f"参数: {ids}")
+        
         cursor.execute(sql, ids)
         conn.commit()
         cursor.close()
         conn.close()
+        
+        print("=== api_batch_delete 执行完成 ===")
         return jsonify({'success': True})
+        
     except Exception as e:
-        return jsonify({'success': False, 'msg': str(e)}), 500
+        import traceback
+        print(f"=== api_batch_delete 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'success': False, 'msg': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/api/export_excel', methods=['POST'])
 def export_excel():
     table_name = request.json.get('table') 
     ids = request.json.get('ids')  # list
+    
+    print(f"=== export_excel 请求参数 ===")
+    print(f"表名: {table_name}")
+    print(f"导出ID列表: {ids}")
+    
     if not table_name or not ids:
         return jsonify({'success': False, 'msg': '参数缺失'}), 400
+    
     try:
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
         
         # 查询时排除 id 和当前日期字段
-        cursor.execute(f"SELECT * FROM `{table_name}` WHERE id IN ({','.join(['%s'] * len(ids))})", ids)
+        sql = f"SELECT * FROM `{table_name}` WHERE id IN ({','.join(['%s'] * len(ids))})"
+        print(f"执行SQL: {sql}")
+        print(f"参数: {ids}")
+        
+        cursor.execute(sql, ids)
         data = cursor.fetchall()
+        print(f"查询结果: {len(data)} 行数据")
         
         # 排除不需要的字段
         for row in data:
@@ -1454,40 +1543,79 @@ def export_excel():
         df = pd.DataFrame(data)
         output = f"{table_name}.xlsx"
         df.to_excel(output, index=False)
+        print(f"Excel文件已创建: {output}")
 
         # 发送文件到浏览器
+        print("=== export_excel 执行完成 ===")
         return send_file(output, as_attachment=True)
+        
     except Exception as e:
-        return jsonify({'success': False, 'msg': str(e)}), 500
+        import traceback
+        print(f"=== export_excel 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'success': False, 'msg': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/api/output_results')
 def api_output_results():
     try:
+        print("=== 开始执行 api_output_results ===")
         conn = create_connection()
         cursor = conn.cursor(dictionary=True)
+        
         # 读取仲景宛西-客户流向表
+        print("1. 获取 customer_flow 表结构...")
         cursor.execute("DESCRIBE customer_flow")
-        flow_fields = [row[0] for row in cursor.fetchall()]
+        describe_result = cursor.fetchall()
+        print(f"DESCRIBE结果: {describe_result}")
+        # 使用字典格式获取字段名
+        flow_fields = [row['Field'] for row in describe_result]
+        print(f"customer_flow 字段: {flow_fields}")
+        
+        print("2. 查询 customer_flow 表数据...")
         cursor.execute("SELECT * FROM customer_flow")
         flow_rows = cursor.fetchall()
+        print(f"customer_flow 表记录数: {len(flow_rows)}")
+        
         # 读取活动方案表
+        print("3. 获取 activity_plan 表结构...")
         cursor.execute("DESCRIBE activity_plan")
-        plan_fields = [row[0] for row in cursor.fetchall()]
+        describe_result = cursor.fetchall()
+        print(f"DESCRIBE结果: {describe_result}")
+        # 使用字典格式获取字段名
+        plan_fields = [row['Field'] for row in describe_result]
+        print(f"activity_plan 字段: {plan_fields}")
+        
+        print("4. 查询 activity_plan 表数据...")
         cursor.execute("SELECT * FROM activity_plan")
         plan_rows = cursor.fetchall()
+        print(f"activity_plan 表记录数: {len(plan_rows)}")
+        
         plan_map = {row['产品名称']: row for row in plan_rows}
+        print(f"活动方案映射表大小: {len(plan_map)}")
+        
         # 生成输出结果
+        print("5. 开始生成输出结果...")
         result_rows = []
         all_fields_set = set()
-        for row in flow_rows:
+        
+        for i, row in enumerate(flow_rows):
+            print(f"处理第 {i+1} 条记录: 物料名称={row.get('物料名称', 'N/A')}")
+            
             # 左表字段加前缀
             new_row = {f'左-{k}': row.get(k, '') for k in flow_fields}
+            
             # 活动政策
             plan = plan_map.get(row.get('物料名称'))
             policy = plan['活动政策'] if plan else ''
             new_row['左-活动政策'] = policy
+            
             # 赠品金额
             def parse_policy(policy, qty):
+                if not policy:
+                    return 0
                 m = re.search(r'购(\d+)盒.*?返(\d+)元', policy)
                 if m:
                     base_qty = int(m.group(1))
@@ -1495,7 +1623,10 @@ def api_output_results():
                     if base_qty > 0:
                         return base_amt * (int(qty) // base_qty)
                 return 0
-            new_row['左-赠品金额'] = parse_policy(policy, row.get('销售数量', 0))
+            
+            qty = row.get('销售数量', 0)
+            new_row['左-赠品金额'] = parse_policy(policy, qty)
+            
             # 右表字段加前缀
             if plan:
                 for k in plan_fields:
@@ -1503,24 +1634,42 @@ def api_output_results():
             else:
                 for k in plan_fields:
                     new_row[f'右-{k}'] = ''
+            
             # 其它补充字段
             for col in ['渠道关系', '流入人代码', '流入人名称', '流入方组织', '客户分线', '供货价', '流出方组织', '物料编码', '进货日期', '规格型号', '批次', '出库单价', '批号']:
                 key = f'左-{col}'
                 if key not in new_row:
                     new_row[key] = ''
+            
             result_rows.append(new_row)
             all_fields_set.update(new_row.keys())
+        
         # 获取所有字段名，保证表头完整
         all_fields = list(all_fields_set)
+        print(f"最终字段数: {len(all_fields)}")
+        print(f"最终记录数: {len(result_rows)}")
+        
         cursor.close()
         conn.close()
+        
+        print("=== api_output_results 执行完成 ===")
         return jsonify({"fields": all_fields, "rows": result_rows})
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print(f"=== api_output_results 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/api/get_tables', methods=['POST'])
 def api_get_tables():
     data = request.json
+    print(f"=== api_get_tables 请求参数 ===")
+    print(f"数据库配置: {data}")
+    
     try:
         conn = mysql.connector.connect(
             host=data.get('host', 'localhost'),
@@ -1530,21 +1679,38 @@ def api_get_tables():
             database=data.get('database', '')
         )
         cursor = conn.cursor()
-        cursor.execute("SHOW TABLES")
+        
+        sql = "SHOW TABLES"
+        print(f"执行SQL: {sql}")
+        cursor.execute(sql)
         tables = [row[0] for row in cursor.fetchall()]
+        print(f"查询到的表: {tables}")
+        
         cursor.close()
         conn.close()
         return jsonify({'tables': tables})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print(f"=== api_get_tables 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/api/get_table_data', methods=['POST'])
 def api_get_table_data():
     data = request.json
     table = data.get('table')
     dbconf = data.get('dbconf', {})
+    
+    print(f"=== api_get_table_data 请求参数 ===")
+    print(f"表名: {table}")
+    print(f"数据库配置: {dbconf}")
+    
     if not table:
         return jsonify({'error': '缺少表名'}), 400
+    
     try:
         conn = mysql.connector.connect(
             host=dbconf.get('host', 'localhost'),
@@ -1554,15 +1720,25 @@ def api_get_table_data():
             database=dbconf.get('database', '')
         )
         cursor = conn.cursor()
+        
         # 获取所有字段
-        cursor.execute(f"DESCRIBE `{table}`")
-        all_fields = [desc[0] for desc in cursor.fetchall()]
+        describe_sql = f"DESCRIBE `{table}`"
+        print(f"1. 执行SQL: {describe_sql}")
+        cursor.execute(describe_sql)
+        describe_result = cursor.fetchall()
+        print(f"DESCRIBE结果: {describe_result}")
+        # 使用索引格式获取字段名（因为使用的是普通cursor）
+        all_fields = [desc[0] for desc in describe_result]
+        print(f"表字段: {all_fields}")
+        
         # 查询所有数据
         sql = f"SELECT * FROM `{table}`"
-        print(f"[DEBUG] 执行SQL: {sql}")
+        print(f"2. 执行SQL: {sql}")
         cursor.execute(sql)
         rows = cursor.fetchall()
         columns = [desc[0] for desc in cursor.description]
+        print(f"查询结果: {len(rows)} 行数据")
+        
         import io, csv
         output = io.StringIO()
         writer = csv.writer(output)
@@ -1572,11 +1748,21 @@ def api_get_table_data():
             # 补全缺失字段
             full_row = [row_dict.get(col, '') for col in all_fields]
             writer.writerow(full_row)
+        
         cursor.close()
         conn.close()
+        
+        print("=== api_get_table_data 执行完成 ===")
         return jsonify({'csv_string': output.getvalue()})
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print(f"=== api_get_table_data 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/api/compare_join', methods=['POST'])
 def api_compare_join():
@@ -1588,8 +1774,18 @@ def api_compare_join():
     dbconf = data.get('dbconf', {})
     # 可选：日期字段及格式化要求
     date_fields = data.get('date_fields', {})  # {tableA: 字段名, tableB: 字段名}
+    
+    print(f"=== api_compare_join 请求参数 ===")
+    print(f"表A: {tableA}")
+    print(f"表B: {tableB}")
+    print(f"关联键A: {keysA}")
+    print(f"关联键B: {keysB}")
+    print(f"数据库配置: {dbconf}")
+    print(f"日期字段配置: {date_fields}")
+    
     if not tableA or not tableB or not keysA or not keysB or len(keysA) != len(keysB):
         return jsonify({'error': '参数缺失或不合法'}), 400
+    
     try:
         conn = mysql.connector.connect(
             host=dbconf.get('host', 'localhost'),
@@ -1599,14 +1795,27 @@ def api_compare_join():
             database=dbconf.get('database', '')
         )
         cursor = conn.cursor()
+        
         # 获取字段名
+        print("1. 获取表A字段...")
         cursor.execute(f"DESCRIBE `{tableA}`")
-        fieldsA = [row[0] for row in cursor.fetchall()]
+        describe_result = cursor.fetchall()
+        print(f"表A DESCRIBE结果: {describe_result}")
+        fieldsA = [row[0] for row in describe_result]
+        print(f"表A字段: {fieldsA}")
+        
+        print("2. 获取表B字段...")
         cursor.execute(f"DESCRIBE `{tableB}`")
-        fieldsB = [row[0] for row in cursor.fetchall()]
+        describe_result = cursor.fetchall()
+        print(f"表B DESCRIBE结果: {describe_result}")
+        fieldsB = [row[0] for row in describe_result]
+        print(f"表B字段: {fieldsB}")
+        
         # 拼接select字段
         select_fields = [f"a.`{f}` AS '左-{f}'" for f in fieldsA] + [f"b.`{f}` AS '右-{f}'" for f in fieldsB]
         select_sql = ", ".join(select_fields)
+        print(f"SELECT字段: {select_sql}")
+        
         # 构造ON条件，支持日期格式化
         on_clauses = []
         for kA, kB in zip(keysA, keysB):
@@ -1618,22 +1827,37 @@ def api_compare_join():
                 on_clauses.append(f"a.`{kA}` = DATE_FORMAT(b.`{kB}`,'%Y/%c/%e')")
             else:
                 on_clauses.append(f"a.`{kA}` = b.`{kB}`")
+        
         on_sql = ' AND '.join(on_clauses)
+        print(f"ON条件: {on_sql}")
+        
         sql = f"SELECT {select_sql} FROM `{tableA}` a JOIN `{tableB}` b ON {on_sql}"
-        print(f"[DEBUG] JOIN SQL: {sql}")
+        print(f"3. 执行JOIN SQL: {sql}")
         cursor.execute(sql)
         columns = [desc[0] for desc in cursor.description]
         rows = cursor.fetchall()
+        print(f"JOIN结果: {len(rows)} 行数据")
+        
         import io, csv
         output = io.StringIO()
         writer = csv.writer(output)
         writer.writerow(columns)
         writer.writerows(rows)
+        
         cursor.close()
         conn.close()
+        
+        print("=== api_compare_join 执行完成 ===")
         return jsonify({'csv_string': output.getvalue(), 'sql': sql})
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print(f"=== api_compare_join 执行错误 ===")
+        print(f"错误类型: {type(e).__name__}")
+        print(f"错误信息: {str(e)}")
+        print("详细错误堆栈:")
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'error_type': type(e).__name__}), 500
 
 @app.route('/compare')
 def compare_page():
