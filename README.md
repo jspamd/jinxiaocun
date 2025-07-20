@@ -6,7 +6,7 @@
 
 ### Excel文件
 - `客户原始兑付明细2.xlsx` - 客户兑付明细数据
-- `客户流向2.xlsx` - 客户流向数据
+- `仲景宛西.xlsx` - 仲景宛西数据
 - `活动方案.xlsx` - 活动方案数据
 - `输出结果.xlsx` - 输出结果数据
 
@@ -53,7 +53,7 @@ python import_data.py
 - 包含客户兑付相关的详细信息
 - 主要字段：结算金额、业务日期、客户编码、商品名称等
 
-### 2. customer_flow (客户流向表)
+### 2. customer_flow (仲景宛西-客户流向表)
 - 记录客户间的商品流向
 - 主要字段：进货日期、流入方、流出方、物料信息等
 
@@ -99,15 +99,17 @@ python import_data.py
 方案一：打包为可执行文件（推荐，适合Windows用户）
 1. **使用 PyInstaller 打包**
    这样用户无需安装Python环境，直接双击运行。
-步骤：
-1.**安装 PyInstaller**
+   步骤：
+   1.**安装 PyInstaller**
   -  pip install pyinstaller
 2.**在项目目录下执行打包命令**
  -   pyinstaller -F -w web_import.py
  -   -F 生成单一可执行文件
  -   -w 不弹出命令行窗口（如需调试可去掉）
+ -   pyinstaller --add-data "static;static"   --add-data "uploads;uploads" --hidden-import pandas --hidden-import openpyxl --hidden-import xlrd --onefile web_import.py
 
 3.**打包后目录说明**
+
 - dist/web_import.exe 就是可分发的主程序
 - 需要把 static 文件夹、uploads 文件夹、Excel模板等一并打包给对方
 
