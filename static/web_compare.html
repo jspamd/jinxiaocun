@@ -51,10 +51,28 @@
             border-style: dashed;
         }
         .field-item .remove-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 32px;
+            width: 32px;
+            text-align: center;
+            padding: 0;
             margin-left: 0.5rem;
-            color: #ef4444; /* red-500 */
+            color: #ef4444;
             cursor: pointer;
             font-weight: bold;
+            font-size: 18px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+            box-sizing: border-box;
+        }
+        .field-item .remove-btn:hover, .field-item .remove-btn:active {
+            background: #fee2e2;
+            color: #b91c1c;
+            box-shadow: 0 2px 8px #fca5a533;
         }
 
         /* Custom styles for the field lists to match image */
@@ -1005,7 +1023,7 @@
             const currentKeys = type === 'A' ? currentKeyAFields : currentKeyBFields;
             headers.forEach(header => {
                 if (!currentKeys.includes(header)) {
-                    container.appendChild(createDraggableField(header));
+                    container.appendChild(createDraggableField(header, false, type));
                 }
             });
         }
@@ -1019,25 +1037,39 @@
             }
             container.innerHTML = '';
             selectedFields.forEach(header => {
-                container.appendChild(createDraggableField(header, true)); // true for selected
+                container.appendChild(createDraggableField(header, true, type)); // true for selected
             });
         }
 
         // Helper function to create a draggable field item
-        function createDraggableField(header, isSelected = false) {
+        function createDraggableField(header, isSelected = false, type = 'A') {
             const fieldItem = document.createElement('div');
             fieldItem.className = `field-item ${isSelected ? 'bg-indigo-200' : ''}`; // Indicate selected fields
             fieldItem.draggable = true;
             fieldItem.setAttribute('data-header', header);
             fieldItem.setAttribute('data-type', isSelected ? 'selected' : 'available'); // Indicate type
+            fieldItem.setAttribute('data-side', type); // 标记左右表
 
             const fieldText = document.createElement('span');
             fieldText.textContent = header;
             fieldItem.appendChild(fieldText);
 
-            const removeBtn = document.createElement('span');
-            removeBtn.textContent = ' ×';
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
             removeBtn.className = 'remove-btn';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (isSelected) {
+                    const header = fieldItem.getAttribute('data-header');
+                    if (type === 'A') {
+                        currentKeyAFields = currentKeyAFields.filter(h => h !== header);
+                    } else if (type === 'B') {
+                        currentKeyBFields = currentKeyBFields.filter(h => h !== header);
+                    }
+                    updateFieldDisplays();
+                }
+            });
             fieldItem.appendChild(removeBtn);
 
             fieldItem.addEventListener('dragstart', dragStart);

@@ -835,15 +835,52 @@ def query_data():
         </div>
     </form>
 </div>
-<div id="addDialog" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;padding:24px 32px;box-shadow:0 2px 16px #888;border-radius:8px;z-index:1001;min-width:320px;">
-    <form id="addForm">
+<div id="addDialog" style="display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;padding:32px 36px;box-shadow:0 8px 32px #888;border-radius:18px;z-index:1001;min-width:320px;max-width:90vw;max-height:90vh;overflow:auto;">
+    <form id="addForm" style="margin:0;">
+        <div style="font-size:22px;font-weight:bold;text-align:center;margin-bottom:24px;letter-spacing:2px;color:#3578e5;">新增数据</div>
         <div id="addFields"></div>
-        <div style="margin-top:18px;text-align:right;">
-            <button type="button" onclick="closeDialog()">取消</button>
-            <button type="submit">新增</button>
+        <div style="margin-top:28px;display:flex;gap:18px;justify-content:flex-end;">
+            <button type="button" onclick="closeDialog()" style="background:#f3f4f6;color:#333;border:none;padding:10px 28px;border-radius:8px;font-size:16px;cursor:pointer;transition:background 0.2s;">取消</button>
+            <button type="submit" style="background:linear-gradient(90deg,#4f8cff 0%,#6ed0ff 100%);color:#fff;border:none;padding:10px 28px;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(79,140,255,0.10);transition:background 0.2s,box-shadow 0.2s;">新增</button>
         </div>
     </form>
 </div>
+<style>
+#addDialog input, #addDialog select {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    font-size: 16px;
+    margin-top: 4px;
+    margin-bottom: 18px;
+    background: #f9fafb;
+    transition: border 0.2s, box-shadow 0.2s;
+}
+#addDialog input:focus, #addDialog select:focus {
+    border: 1.5px solid #4f8cff;
+    outline: none;
+    background: #fff;
+    box-shadow: 0 0 0 2px #b3d1ff;
+}
+#addDialog label {
+    font-size: 15px;
+    color: #333;
+    font-weight: 500;
+    margin-bottom: 2px;
+    display: block;
+}
+@media (max-width: 600px) {
+    #addDialog {
+        padding: 18px 6vw;
+        min-width: unset;
+    }
+    #addDialog form > div[style*='margin-top:28px'] {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+</style>
 
 <script>
 var sort_order = "{{ sort_order|default('') }}";
